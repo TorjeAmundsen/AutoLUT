@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+build/
+
+# Test results / coverage
+TestResults/
+*.trx
+coverage*.json
+coverage*.xml
+
+# IDE
+.vs/
+.idea/
+*.user
+*.DotSettings.user
+
+# Generated verification artifacts (recreate via pipeline on samples/capture-*.png)
+samples/compare-*.png
+samples/corrected-*.png
+samples/LUT-from-samples.png
+
+# OS noise
+Thumbs.db
+.DS_Store

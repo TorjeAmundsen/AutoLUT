@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AutoLUT.App/AutoLUT.App.csproj" />
+    <Project Path="src/AutoLUT.Core/AutoLUT.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UnitTests/UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/AutoLUT.Tools.RegionGen/AutoLUT.Tools.RegionGen.csproj" />
+  </Folder>
+</Solution>
