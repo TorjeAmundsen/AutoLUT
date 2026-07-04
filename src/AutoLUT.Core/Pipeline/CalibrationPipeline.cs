@@ -148,13 +148,19 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
                 $"Too few identified colors ({identified} of {CalibrationPalette.Colors.Count}; need at least {MinimumIdentified}).");
         }
 
+        // All 9 neutrals are guaranteed identified at this point.
+        Rgb MeanOf(byte gray) => means[Array.IndexOf(targets, CalibrationPalette.Neutrals.First(c => c.R == gray))]!.Value;
+        string? rangeWarning = ColorRangeCheck.Detect(MeanOf(0), MeanOf(255), MeanOf(32), MeanOf(224));
+
         var correspondences = new List<ColorCorrespondence>(identified);
+        var correspondenceShotIndex = new List<int>(identified);
         for (int i = 0; i < n; i++)
         {
             if (targets[i] is not { } target || means[i] is not { } mean)
                 continue;
             double noise = stdDevs[i] / NoiseScale;
             correspondences.Add(new ColorCorrespondence(mean, target.ToRgb(), 1.0 / (1.0 + noise * noise), stdDevs[i] * stdDevs[i]));
+            correspondenceShotIndex.Add(i);
         }
 
         progress?.Report(new PipelineProgress(PipelineStage.Fitting, "Fitting transform..."));
@@ -169,29 +175,33 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         }
         catch (Exception ex)
         {
-            return BuildResult(names, errors, targets, means, warnings, $"Fitting failed: {ex.Message}");
+            return BuildResult(names, errors, targets, means, warnings, $"Fitting failed: {ex.Message}", rangeWarning);
         }
 
         progress?.Report(new PipelineProgress(PipelineStage.GeneratingLut, "Generating LUT..."));
         var lut = _lutGenerator.Generate(fit.Transform);
         var lutImage = _lutWriter.Bake(lut, _lutTemplate);
 
+        var outliers = new bool[n];
+        for (int k = 0; k < correspondenceShotIndex.Count; k++)
+            outliers[correspondenceShotIndex[k]] = !fit.Diagnostics.Inliers[k];
+
         progress?.Report(new PipelineProgress(PipelineStage.Finished, "Finished"));
-        var screenshotsOut = BuildScreenshots(names, errors, targets, means);
-        return new CalibrationResult(screenshotsOut, null, warnings, lutImage, fit.Diagnostics);
+        var screenshotsOut = BuildScreenshots(names, errors, targets, means, outliers);
+        return new CalibrationResult(screenshotsOut, null, warnings, rangeWarning, lutImage, fit.Diagnostics);
     }
 
     private static CalibrationResult BuildResult(
         string[] names, string?[] errors, PaletteColor?[] targets, Rgb?[] means,
-        IReadOnlyList<string> warnings, string globalError) =>
-        new(BuildScreenshots(names, errors, targets, means), globalError, warnings, null, null);
+        IReadOnlyList<string> warnings, string globalError, string? rangeWarning = null) =>
+        new(BuildScreenshots(names, errors, targets, means, null), globalError, warnings, rangeWarning, null, null);
 
     private static ScreenshotResult[] BuildScreenshots(
-        string[] names, string?[] errors, PaletteColor?[] targets, Rgb?[] means)
+        string[] names, string?[] errors, PaletteColor?[] targets, Rgb?[] means, bool[]? outliers)
     {
         var results = new ScreenshotResult[names.Length];
         for (int i = 0; i < names.Length; i++)
-            results[i] = new ScreenshotResult(names[i], errors[i], targets[i], means[i]);
+            results[i] = new ScreenshotResult(names[i], errors[i], targets[i], means[i], outliers?[i] ?? false);
         return results;
     }
 }

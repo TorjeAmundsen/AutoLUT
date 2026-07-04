@@ -23,7 +23,8 @@ public class App : Application
             window.DataContext = new MainWindowViewModel(
                 CalibrationPipeline.CreateDefault(codec),
                 codec,
-                new FilePickerService(window));
+                new FilePickerService(window),
+                new DialogService(window));
             desktop.MainWindow = window;
         }
 

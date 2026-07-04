@@ -28,7 +28,8 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
         float[] matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
         var curves = new MonotoneCurve[3];
         AffineCurvesTransform transform = null!;
-        var residuals = new float[n];
+        var oklabResiduals = new float[n];
+        var rgbResiduals = new float[n];
 
         for (int iteration = 0; iteration < options.RobustIterations; iteration++)
         {
@@ -45,12 +46,19 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
             transform = new AffineCurvesTransform(matrix, curves[0], curves[1], curves[2]);
 
             for (int i = 0; i < n; i++)
-                residuals[i] = Oklab.DeltaESrgb(transform.Apply(samples[i].Observed).Clamp01(), samples[i].Reference);
+            {
+                var corrected = transform.Apply(samples[i].Observed).Clamp01();
+                // Oklab for reported quality; RGB for outlier decisions. Oklab's cube-root
+                // lightness amplifies sub-LSB errors near black into large dE, which would
+                // chronically reject dark samples, while capture noise is uniform in RGB.
+                oklabResiduals[i] = Oklab.DeltaESrgb(corrected, samples[i].Reference);
+                rgbResiduals[i] = RgbDistance(corrected, samples[i].Reference);
+            }
 
-            UpdateRobustWeights(residuals, robust);
+            UpdateRobustWeights(rgbResiduals, oklabResiduals, robust);
         }
 
-        return new FitResult(transform, BuildDiagnostics(residuals, robust));
+        return new FitResult(transform, BuildDiagnostics(oklabResiduals, robust));
     }
 
     private static float[] FitMatrix(IReadOnlyList<ColorCorrespondence> samples, double[] weights, double ridgeRelative)
@@ -171,9 +179,9 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
         return new MonotoneCurve(values);
     }
 
-    private static void UpdateRobustWeights(float[] residuals, double[] robust)
+    private static void UpdateRobustWeights(float[] rgbResiduals, float[] oklabResiduals, double[] robust)
     {
-        var sorted = (float[])residuals.Clone();
+        var sorted = (float[])rgbResiduals.Clone();
         Array.Sort(sorted);
         double median = sorted[sorted.Length / 2];
 
@@ -183,12 +191,23 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
         Array.Sort(deviations);
         double mad = deviations[deviations.Length / 2];
 
-        // Tukey biweight cutoff from a robust scale estimate; floor keeps a near-perfect fit
-        // from rejecting everything over float noise.
-        double cutoff = Math.Max(4.685 * 1.4826 * mad + median, 1e-4);
-        for (int i = 0; i < residuals.Length; i++)
+        // Tukey biweight cutoff from a robust scale estimate. The floor matters: with near-exact
+        // samples MAD collapses below capture noise and healthy samples would be rejected for
+        // residuals nobody can see. Within ~5/255 RGB a sample is consistent by definition.
+        const double minimumCutoff = 0.02;
+        // A sample is only an outlier if its error is also VISIBLE: clipped saturated channels
+        // can produce sensor-space error with near-zero perceptual error - keep those.
+        const double perceptualFloor = 0.01;
+        double cutoff = Math.Max(4.685 * 1.4826 * mad + median, minimumCutoff);
+        for (int i = 0; i < rgbResiduals.Length; i++)
         {
-            double u = residuals[i] / cutoff;
+            if (oklabResiduals[i] < perceptualFloor)
+            {
+                robust[i] = 1;
+                continue;
+            }
+
+            double u = rgbResiduals[i] / cutoff;
             robust[i] = u >= 1 ? 0 : Math.Pow(1 - u * u, 2);
         }
     }
@@ -200,8 +219,14 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
         float mean = residuals.Average();
         float median = sorted[sorted.Length / 2];
         float p95 = sorted[Math.Min((int)(sorted.Length * 0.95), sorted.Length - 1)];
-        int inliers = robust.Count(w => w > 0);
-        return new FitDiagnostics(mean, median, p95, inliers, residuals.Length, residuals);
+        bool[] inliers = robust.Select(w => w > 0).ToArray();
+        return new FitDiagnostics(mean, median, p95, inliers.Count(i => i), residuals.Length, residuals, inliers);
+    }
+
+    private static float RgbDistance(Rgb a, Rgb b)
+    {
+        float dr = a.R - b.R, dg = a.G - b.G, db = a.B - b.B;
+        return MathF.Sqrt(dr * dr + dg * dg + db * db);
     }
 
     private static double Channel(Rgb c, int channel) => channel switch

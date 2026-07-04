@@ -20,7 +20,14 @@ public partial class ScreenshotItemViewModel : ObservableObject
     public int CorrectedGeneration { get; set; } = -1;
 
     [ObservableProperty]
-    private string _statusText = "Ready";
+    private string _statusPrefix = "Ready";
+
+    /// <summary>Hex part of the status, rendered in a monospace font.</summary>
+    [ObservableProperty]
+    private string _statusHex = "";
+
+    [ObservableProperty]
+    private string _statusSuffix = "";
 
     [ObservableProperty]
     private IBrush _statusBrush = Brushes.Gray;
@@ -35,18 +42,34 @@ public partial class ScreenshotItemViewModel : ObservableObject
         Image = image;
     }
 
+    private static readonly IBrush SuccessBrush = new SolidColorBrush(Color.Parse("#22CC22"));
+
     public void SetIdentified(PaletteColor target)
     {
         Target = target;
-        StatusText = $"Identified {target.Hex}";
-        StatusBrush = Brushes.Green;
+        StatusPrefix = "Identified ";
+        StatusHex = target.Hex;
+        StatusSuffix = "";
+        StatusBrush = SuccessBrush;
+        SwatchBrush = new SolidColorBrush(Color.FromRgb(target.R, target.G, target.B));
+    }
+
+    public void SetOutlier(PaletteColor target)
+    {
+        Target = target;
+        StatusPrefix = "Identified ";
+        StatusHex = target.Hex;
+        StatusSuffix = " - excluded as outlier (inconsistent with the other captures; consider re-capturing)";
+        StatusBrush = Brushes.Orange;
         SwatchBrush = new SolidColorBrush(Color.FromRgb(target.R, target.G, target.B));
     }
 
     public void SetError(string message)
     {
         Target = null;
-        StatusText = message;
+        StatusPrefix = message;
+        StatusHex = "";
+        StatusSuffix = "";
         StatusBrush = Brushes.Tomato;
         SwatchBrush = null;
     }

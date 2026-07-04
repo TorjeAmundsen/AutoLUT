@@ -14,6 +14,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly ICalibrationPipeline _pipeline;
     private readonly IImageCodec _codec;
     private readonly IFilePickerService _files;
+    private readonly IDialogService _dialogs;
 
     private RawImage? _lutImage;
     private ObsLutApplier? _lutApplier;
@@ -23,7 +24,6 @@ public partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<ScreenshotItemViewModel> Screenshots { get; } = [];
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveSelectedCommand))]
     private ScreenshotItemViewModel? _selectedScreenshot;
 
     [ObservableProperty]
@@ -39,11 +39,12 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SaveLutCommand))]
     private bool _hasLut;
 
-    public MainWindowViewModel(ICalibrationPipeline pipeline, IImageCodec codec, IFilePickerService files)
+    public MainWindowViewModel(ICalibrationPipeline pipeline, IImageCodec codec, IFilePickerService files, IDialogService dialogs)
     {
         _pipeline = pipeline;
         _codec = codec;
         _files = files;
+        _dialogs = dialogs;
     }
 
     partial void OnSelectedScreenshotChanged(ScreenshotItemViewModel? value) => _ = UpdatePreviewAsync();
@@ -72,21 +73,25 @@ public partial class MainWindowViewModel : ObservableObject
         }
 
         GenerateCommand.NotifyCanExecuteChanged();
+        ResetCommand.NotifyCanExecuteChanged();
         SelectedScreenshot ??= Screenshots.FirstOrDefault();
     }
 
-    private bool CanRemoveSelected() => SelectedScreenshot is not null;
+    private bool CanReset() => Screenshots.Count > 0;
 
-    [RelayCommand(CanExecute = nameof(CanRemoveSelected))]
-    private void RemoveSelected()
+    [RelayCommand(CanExecute = nameof(CanReset))]
+    private void Reset()
     {
-        if (SelectedScreenshot is { } selected)
-        {
-            int index = Screenshots.IndexOf(selected);
-            Screenshots.Remove(selected);
-            SelectedScreenshot = Screenshots.Count > 0 ? Screenshots[Math.Min(index, Screenshots.Count - 1)] : null;
-            GenerateCommand.NotifyCanExecuteChanged();
-        }
+        Screenshots.Clear();
+        SelectedScreenshot = null;
+        _lutImage = null;
+        _lutApplier = null;
+        HasLut = false;
+        ShowCorrected = false;
+        PreviewImage = null;
+        StatusText = "Capture the 39 gz calibration colors, then add the screenshots here.";
+        GenerateCommand.NotifyCanExecuteChanged();
+        ResetCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanGenerate() => Screenshots.Count > 0;
@@ -113,12 +118,24 @@ public partial class MainWindowViewModel : ObservableObject
         {
             var shot = result.Screenshots[i];
             if (shot is { IsValid: true, Target: { } target })
-                items[i].SetIdentified(target);
+            {
+                if (shot.IsOutlier)
+                    items[i].SetOutlier(target);
+                else
+                    items[i].SetIdentified(target);
+            }
             else
+            {
                 items[i].SetError($"{shot.Name} {shot.Error ?? "was not identified."}");
+            }
         }
 
-        string warningSuffix = result.Warnings.Count > 0 ? $" Warning: {result.Warnings[0]}" : "";
+        // A color range mismatch silently ruins every capture, so it gets a modal dialog
+        // instead of just a status-bar line.
+        if (result.ColorRangeWarning is { } rangeWarning)
+            await _dialogs.ShowWarningAsync("Color range mismatch detected", rangeWarning);
+
+        string warningSuffix = result.Warnings.Count > 0 ? $" Warning: {string.Join(" ", result.Warnings)}" : "";
         if (!result.Success)
         {
             StatusText = (result.Error ?? "Calibration failed.") + warningSuffix;

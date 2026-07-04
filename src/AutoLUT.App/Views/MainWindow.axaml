@@ -4,7 +4,9 @@
     xmlns:vm="using:AutoLUT.App.ViewModels"
     x:Class="AutoLUT.App.Views.MainWindow"
     x:DataType="vm:MainWindowViewModel"
+    Icon="/Assets/icon.png"
     Title="AutoLUT - OoT Capture Color Calibration"
+    Background="#2C2C2C"
     Width="1100"
     Height="700"
     MinWidth="800"
@@ -17,7 +19,7 @@
     <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto,*">
       <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,12,12,8">
         <Button Content="Add Screenshots..." Command="{Binding AddScreenshotsCommand}" />
-        <Button Content="Remove" Command="{Binding RemoveSelectedCommand}" />
+        <Button Content="Reset" Command="{Binding ResetCommand}" />
       </StackPanel>
       <ListBox Grid.Row="1" Margin="12,0,12,12" ItemsSource="{Binding Screenshots}" SelectedItem="{Binding SelectedScreenshot}">
         <ListBox.ItemTemplate>
@@ -36,7 +38,7 @@
                   IsVisible="{Binding SwatchBrush, Converter={x:Static ObjectConverters.IsNotNull}}" />
               <StackPanel Grid.Column="1" Spacing="2">
                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="11" TextWrapping="Wrap" />
+                <TextBlock Foreground="{Binding StatusBrush}" FontSize="11" TextWrapping="Wrap"><Run Text="{Binding StatusPrefix}" /><Run Text="{Binding StatusHex}" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" /><Run Text="{Binding StatusSuffix}" /></TextBlock>
               </StackPanel>
             </Grid>
           </DataTemplate>
@@ -45,9 +47,9 @@
     </Grid>
 
     <!-- Preview -->
-    <Border Grid.Column="1" Grid.Row="0" Background="#101010" Margin="0,12,12,12" CornerRadius="4">
+    <Border Grid.Column="1" Grid.Row="0" Background="#151515" BorderBrush="#484848" BorderThickness="1" Margin="0,12,12,12" CornerRadius="4">
       <Panel>
-        <TextBlock Text="No screenshot selected" Foreground="Gray" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
+        <TextBlock Text="No screenshot selected" Foreground="#888888" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
         <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="8" />
       </Panel>
     </Border>

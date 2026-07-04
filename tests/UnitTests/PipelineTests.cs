@@ -82,6 +82,56 @@ public class PipelineTests
     }
 
     [Test]
+    public async Task Run_WashedOutCaptures_WarnsAboutColorRangeButStillCorrects()
+    {
+        // Arrange: limited-range content treated as full - an affine distortion the LUT can fix,
+        // but the user should fix the range setting at the source.
+        var shots = CalibrationPalette.Colors
+            .Select((c, i) => new ScreenshotInput($"{c.Hex}.png",
+                Png(SolidCaptures.CaptureColor(SolidCaptures.Washout(c.ToRgb()), 2, 800 + i))))
+            .ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.Success, Is.True, result.Error);
+        Assert.That(result.ColorRangeWarning, Does.Contain("washed out"));
+    }
+
+    [Test]
+    public async Task Run_FlagsInconsistentCaptureAsOutlier()
+    {
+        // Arrange: one capture is identifiable but its color disagrees with the transform that
+        // explains every other capture (+25/255 red on the mid gray) - robust fitting must
+        // exclude it and the result must say which one.
+        var degradation = SolidCaptures.Degradation.Moderate;
+        var shots = new List<ScreenshotInput>();
+        int contaminatedIndex = -1;
+        for (int i = 0; i < CalibrationPalette.Colors.Count; i++)
+        {
+            var color = CalibrationPalette.Colors[i];
+            var degraded = degradation.Apply(color.ToRgb());
+            if (color is { IsNeutral: true, R: 128 })
+            {
+                degraded = new Rgb(degraded.R + 25f / 255f, degraded.G, degraded.B);
+                contaminatedIndex = i;
+            }
+
+            shots.Add(new ScreenshotInput($"{color.Hex}.png", Png(SolidCaptures.CaptureColor(degraded, 2, 900 + i))));
+        }
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.Success, Is.True, result.Error);
+        Assert.That(result.Screenshots[contaminatedIndex].IsValid, Is.True);
+        Assert.That(result.Screenshots[contaminatedIndex].IsOutlier, Is.True);
+        Assert.That(result.Screenshots.Count(s => s.IsOutlier), Is.LessThanOrEqualTo(2));
+    }
+
+    [Test]
     public async Task Run_IsolatesNonSolidCapture()
     {
         // Arrange: one gradient capture among the valid ones.

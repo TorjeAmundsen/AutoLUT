@@ -35,4 +35,5 @@ public sealed record FitDiagnostics(
     float P95DeltaE,
     int InlierCount,
     int TotalCount,
-    IReadOnlyList<float> Residuals);
+    IReadOnlyList<float> Residuals,
+    IReadOnlyList<bool> Inliers);

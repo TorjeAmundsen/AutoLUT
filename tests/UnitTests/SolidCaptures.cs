@@ -47,6 +47,36 @@ internal static class SolidCaptures
         }
     }
 
+    /// <summary>Limited-range content treated as full: 0-255 compressed into 16-235 (washed out).</summary>
+    public static Rgb Washout(Rgb c) => new(
+        16f / 255f + c.R * 219f / 255f,
+        16f / 255f + c.G * 219f / 255f,
+        16f / 255f + c.B * 219f / 255f);
+
+    /// <summary>Full-range content expanded as limited: (x-16)*255/219, clipping both ends (crushed).</summary>
+    public static Rgb Crunch(Rgb c) => new(
+        Math.Clamp((c.R * 255f - 16f) * 255f / 219f, 0f, 255f) / 255f,
+        Math.Clamp((c.G * 255f - 16f) * 255f / 219f, 0f, 255f) / 255f,
+        Math.Clamp((c.B * 255f - 16f) * 255f / 219f, 0f, 255f) / 255f);
+
+    /// <summary>A solid capture of an arbitrary already-degraded color plus noise.</summary>
+    public static RawImage CaptureColor(Rgb value, int noiseAmplitude, int seed, int width = 320, int height = 240)
+    {
+        byte r = (byte)Math.Clamp(MathF.Round(value.R * 255f), 0f, 255f);
+        byte g = (byte)Math.Clamp(MathF.Round(value.G * 255f), 0f, 255f);
+        byte b = (byte)Math.Clamp(MathF.Round(value.B * 255f), 0f, 255f);
+
+        var image = Solid(width, height, r, g, b);
+        if (noiseAmplitude > 0)
+        {
+            var rng = new Random(seed);
+            for (int i = 0; i < image.Pixels.Length; i++)
+                image.Pixels[i] = (byte)Math.Clamp(image.Pixels[i] + rng.Next(-noiseAmplitude, noiseAmplitude + 1), 0, 255);
+        }
+
+        return image;
+    }
+
     public static RawImage Solid(int width, int height, byte r, byte g, byte b)
     {
         var image = new RawImage(width, height);

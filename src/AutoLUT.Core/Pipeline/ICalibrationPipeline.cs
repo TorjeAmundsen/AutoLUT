@@ -32,7 +32,8 @@ public sealed record ScreenshotResult(
     string Name,
     string? Error,
     PaletteColor? Target,
-    Rgb? ObservedMean)
+    Rgb? ObservedMean,
+    bool IsOutlier = false)
 {
     public bool IsValid => Error is null && Target is not null;
 }
@@ -41,6 +42,7 @@ public sealed record CalibrationResult(
     IReadOnlyList<ScreenshotResult> Screenshots,
     string? Error,
     IReadOnlyList<string> Warnings,
+    string? ColorRangeWarning,
     RawImage? LutImage,
     FitDiagnostics? Diagnostics)
 {
