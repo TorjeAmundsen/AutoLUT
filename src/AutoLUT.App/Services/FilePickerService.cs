@@ -5,13 +5,21 @@ namespace AutoLUT.App.Services;
 
 public sealed class FilePickerService : IFilePickerService
 {
-    private readonly Window _window;
+    private readonly Func<TopLevel?> _topLevel;
 
-    public FilePickerService(Window window) => _window = window;
+    /// <summary>
+    /// Resolves the TopLevel lazily: on desktop it is the main window; in the browser the
+    /// single view is only attached to its TopLevel after layout, so it cannot be captured
+    /// at composition time.
+    /// </summary>
+    public FilePickerService(Func<TopLevel?> topLevel) => _topLevel = topLevel;
+
+    private IStorageProvider StorageProvider =>
+        (_topLevel() ?? throw new InvalidOperationException("View is not attached yet.")).StorageProvider;
 
     public async Task<IReadOnlyList<(string Name, byte[] Data)>> PickPngScreenshotsAsync()
     {
-        var files = await _window.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Select calibration screenshots",
             AllowMultiple = true,
@@ -32,7 +40,7 @@ public sealed class FilePickerService : IFilePickerService
 
     public async Task<Stream?> CreateSaveFileAsync(string suggestedName)
     {
-        var file = await _window.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = "Save OBS LUT",
             SuggestedFileName = suggestedName,

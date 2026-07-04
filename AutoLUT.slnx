@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/AutoLUT.App/AutoLUT.App.csproj" />
+    <Project Path="src/AutoLUT.Browser/AutoLUT.Browser.csproj" />
     <Project Path="src/AutoLUT.Core/AutoLUT.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">

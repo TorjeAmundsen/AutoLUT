@@ -1,9 +1,8 @@
 <Window
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="using:AutoLUT.App.ViewModels"
+    xmlns:views="using:AutoLUT.App.Views"
     x:Class="AutoLUT.App.Views.MainWindow"
-    x:DataType="vm:MainWindowViewModel"
     Icon="/Assets/icon.png"
     Title="AutoLUT - OoT Capture Color Calibration"
     Background="#2C2C2C"
@@ -13,55 +12,6 @@
     MinHeight="500"
 >
 
-  <Grid ColumnDefinitions="300,*" RowDefinitions="*,Auto">
-
-    <!-- Screenshot list -->
-    <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto,*">
-      <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,12,12,8">
-        <Button Content="Add Screenshots..." Command="{Binding AddScreenshotsCommand}" />
-        <Button Content="Reset" Command="{Binding ResetCommand}" />
-      </StackPanel>
-      <ListBox Grid.Row="1" Margin="12,0,12,12" ItemsSource="{Binding Screenshots}" SelectedItem="{Binding SelectedScreenshot}">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:ScreenshotItemViewModel">
-            <Grid ColumnDefinitions="Auto,*">
-              <Border
-                  Grid.Column="0"
-                  Width="16"
-                  Height="16"
-                  Margin="0,2,8,0"
-                  VerticalAlignment="Top"
-                  CornerRadius="3"
-                  BorderBrush="Gray"
-                  BorderThickness="1"
-                  Background="{Binding SwatchBrush}"
-                  IsVisible="{Binding SwatchBrush, Converter={x:Static ObjectConverters.IsNotNull}}" />
-              <StackPanel Grid.Column="1" Spacing="2">
-                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                <TextBlock Foreground="{Binding StatusBrush}" FontSize="11" TextWrapping="Wrap"><Run Text="{Binding StatusPrefix}" /><Run Text="{Binding StatusHex}" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" /><Run Text="{Binding StatusSuffix}" /></TextBlock>
-              </StackPanel>
-            </Grid>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-    </Grid>
-
-    <!-- Preview -->
-    <Border Grid.Column="1" Grid.Row="0" Background="#151515" BorderBrush="#484848" BorderThickness="1" Margin="0,12,12,12" CornerRadius="4">
-      <Panel>
-        <TextBlock Text="No screenshot selected" Foreground="#888888" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
-        <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="8" />
-      </Panel>
-    </Border>
-
-    <!-- Bottom bar: controls + status -->
-    <DockPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="12,0,12,12" LastChildFill="True">
-      <CheckBox DockPanel.Dock="Left" Content="Show Corrected Image" IsChecked="{Binding ShowCorrected}" IsEnabled="{Binding HasLut}" VerticalAlignment="Center" />
-      <Button DockPanel.Dock="Left" Content="Generate LUT" Command="{Binding GenerateCommand}" Margin="16,0,0,0" />
-      <Button DockPanel.Dock="Left" Content="Save LUT.png" Command="{Binding SaveLutCommand}" Margin="8,0,0,0" />
-      <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="Wrap" />
-    </DockPanel>
-
-  </Grid>
+  <views:MainView />
 
 </Window>

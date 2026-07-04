@@ -39,6 +39,12 @@ public partial class MainWindowViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(SaveLutCommand))]
     private bool _hasLut;
 
+    /// <summary>Overlay dialog state for MainView's modal layer; null when dialogs are real windows (desktop).</summary>
+    public OverlayDialogService? Overlay => _dialogs as OverlayDialogService;
+
+    /// <summary>In the browser the savestates are not bundled next to an executable - offer them as a download.</summary>
+    public bool ShowSavestatesLink => OperatingSystem.IsBrowser();
+
     public MainWindowViewModel(ICalibrationPipeline pipeline, IImageCodec codec, IFilePickerService files, IDialogService dialogs)
     {
         _pipeline = pipeline;

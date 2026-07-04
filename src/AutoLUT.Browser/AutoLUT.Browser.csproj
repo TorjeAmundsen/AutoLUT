@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-browser</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- GitHub Pages gzips in transit but cannot serve precompressed .br/.gz siblings;
+         emitting them only bloats the Pages artifact. -->
+    <CompressionEnabled>false</CompressionEnabled>
+    <!-- AutoLUT.App is a desktop exe but is consumed here purely as a library (NETSDK1150). -->
+    <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Browser" Version="12.0.5" />
+    <!-- AutoLUT.Core pins managed SkiaSharp 4.148.0; Avalonia.Skia's transitive wasm natives
+         floor at 3.119.4 - pin the natives to match the managed assembly. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" Version="4.148.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../AutoLUT.App/AutoLUT.App.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -2,6 +2,16 @@
 
 Download the [latest release](/../../releases/latest) for your platform. The builds are self-contained Native AOT executables - no .NET runtime required.
 
+## Or use it in your browser
+
+AutoLUT also runs entirely in your browser (WebAssembly) - nothing to install: **https://TorjeAmundsen.github.io/AutoLUT/**
+
+Same app, same results. Notes for the web version:
+
+- The calibration savestates are downloadable from the page itself (**Download savestates** button).
+- On Firefox/Safari, **Save LUT.png** delivers the file as a regular browser download instead of a save dialog.
+- First load fetches ~10 MB (cached afterwards).
+
 # AutoLUT
 
 <img width="960" height="240" alt="autolut" src="https://github.com/user-attachments/assets/982f0f37-fa42-47ba-85a4-d0a3550d3c33" />

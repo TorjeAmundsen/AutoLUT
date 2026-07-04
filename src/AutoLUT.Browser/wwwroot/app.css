@@ -1,0 +1,26 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #2C2C2C;
+}
+
+#out {
+    width: 100vw;
+    height: 100vh;
+}
+
+#splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #CCCCCC;
+    font-family: system-ui, sans-serif;
+}
+
+#splash .hint {
+    color: #888888;
+    font-size: 0.85em;
+}
