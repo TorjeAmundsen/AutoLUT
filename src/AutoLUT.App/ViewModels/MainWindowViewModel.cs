@@ -45,6 +45,20 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>In the browser the savestates are not bundled next to an executable - offer them as a download.</summary>
     public bool ShowSavestatesLink => OperatingSystem.IsBrowser();
 
+    /// <summary>First help step differs per platform: web offers a download, desktop bundles the folder.</summary>
+    public string HelpSavestatesStep => OperatingSystem.IsBrowser()
+        ? "1. Get the calibration savestates with the Download savestates button below and copy the folder matching your game version (1.0 or 1.2) to your SD card."
+        : "1. Get the calibration savestates from the savestates folder next to the program and copy the folder matching your game version (1.0 or 1.2) to your SD card.";
+
+    [ObservableProperty]
+    private bool _isHelpOpen;
+
+    [RelayCommand]
+    private void OpenHelp() => IsHelpOpen = true;
+
+    [RelayCommand]
+    private void CloseHelp() => IsHelpOpen = false;
+
     public MainWindowViewModel(ICalibrationPipeline pipeline, IImageCodec codec, IFilePickerService files, IDialogService dialogs)
     {
         _pipeline = pipeline;

@@ -56,6 +56,10 @@
         <Button DockPanel.Dock="Left" Content="Generate LUT" Command="{Binding GenerateCommand}" Margin="16,0,0,0" />
         <Button DockPanel.Dock="Left" Content="Save LUT.png" Command="{Binding SaveLutCommand}" Margin="8,0,0,0" />
         <Button DockPanel.Dock="Right"
+                Content="How to use"
+                Command="{Binding OpenHelpCommand}"
+                Margin="16,0,0,0" />
+        <Button DockPanel.Dock="Right"
                 Content="Download savestates"
                 Click="OnSavestatesLinkClick"
                 IsVisible="{Binding ShowSavestatesLink}"
@@ -64,6 +68,25 @@
       </DockPanel>
 
     </Grid>
+
+    <!-- Help overlay -->
+    <Border Background="#B0000000" IsVisible="{Binding IsHelpOpen}">
+      <Border Background="#2C2C2C" BorderBrush="#565656" BorderThickness="1" CornerRadius="4" MaxWidth="560" Padding="24,20" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Spacing="10">
+          <TextBlock Text="How to use AutoLUT" FontWeight="SemiBold" FontSize="16" />
+          <TextBlock TextWrapping="Wrap" Text="{Binding HelpSavestatesStep}" />
+          <TextBlock TextWrapping="Wrap" Text="2. Load each savestate in gz and screenshot the solid color it displays - 39 colors, any order, any filenames. Screenshot the raw capture source: in OBS, right-click the source and use Screenshot (Source) with no filters." />
+          <TextBlock TextWrapping="Wrap" Text="3. Click Add Screenshots and select all your captures, then Generate LUT." />
+          <TextBlock TextWrapping="Wrap" Text="4. Check the result with Show Corrected Image - the preview matches exactly what OBS will render." />
+          <TextBlock TextWrapping="Wrap" Text="5. Save LUT.png, then in OBS: right-click your capture source, Filters, add Apply LUT, and select the file." />
+          <TextBlock TextWrapping="Wrap" Foreground="#999999" Text="All 9 gray savestates (including black and white) are required; at least 20 of the 39 colors must be identified. The game HUD in the screenshots is fine - just keep the center of the screen clear." />
+          <DockPanel LastChildFill="False">
+            <Button DockPanel.Dock="Left" Content="Full instructions on GitHub" Click="OnReadmeLinkClick" />
+            <Button DockPanel.Dock="Right" Content="Close" MinWidth="72" HorizontalContentAlignment="Center" Command="{Binding CloseHelpCommand}" />
+          </DockPanel>
+        </StackPanel>
+      </Border>
+    </Border>
 
     <!-- Modal warning overlay (used in the browser, where dialog Windows are unavailable) -->
     <Border Background="#B0000000" IsVisible="{Binding Overlay.IsOpen, FallbackValue=False}">

@@ -24,7 +24,7 @@ Calibration uses [gz](https://github.com/glankk/gz) savestates that fill the ent
 
 > When screenshotting, screenshot the **raw capture source**, not your processed output. In OBS, right-click your capture source and use **Screenshot (Source)** with **all filters turned off**. Do not edit or re-encode the files afterwards.
 
-1. Get the calibration savestates: they are bundled in the `savestates/` folder next to the executable (also downloadable as a separate zip from releases). Copy the folder matching your game version - `lut_gzs_1.0` or `lut_gzs_1.2` - to your SD card.
+1. Get the calibration savestates: they are bundled in the `savestates/` folder next to the executable (also downloadable as a separate zip from releases). Copy the folder matching your game version - `lut_gzs_1.0` or `lut_gzs_1.2` - to your SD card. The savestates require [gz](https://github.com/glankk/gz) **0.3.7 or newer**.
 2. Load each savestate in gz and screenshot the solid-color fill it displays. There are 39 colors; capture them in any order with any filenames - AutoLUT detects which color each screenshot shows automatically. The game HUD (hearts, buttons, counters, minimap) is fine, but keep the center of the screen clear: no watches or other overlays.
 3. Open AutoLUT, click **Add Screenshots...** and select all your screenshots.
 4. Click **Generate LUT**. Each screenshot gets matched to its color (shown as a swatch in the list); problems are reported per screenshot.
