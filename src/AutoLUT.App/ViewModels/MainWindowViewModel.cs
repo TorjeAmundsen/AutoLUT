@@ -177,13 +177,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             if (item.Corrected is null || item.CorrectedGeneration != _lutGeneration)
             {
-                // Right half shows the commanded palette color so corrected-vs-target is one glance.
-                var target = item.Target;
-                var corrected = await Task.Run(() =>
-                {
-                    var applied = applier.Apply(item.Image);
-                    return target is null ? applied : PreviewRenderer.ComposeWithTarget(applied, target.R, target.G, target.B);
-                });
+                var corrected = await Task.Run(() => applier.Apply(item.Image));
                 if (version != _previewVersion)
                     return; // superseded by a newer preview request
                 item.Corrected = corrected;

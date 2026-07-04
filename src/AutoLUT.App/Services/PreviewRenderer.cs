@@ -8,25 +8,6 @@ namespace AutoLUT.App.Services;
 
 public static class PreviewRenderer
 {
-    /// <summary>Returns a copy with the right half filled with the commanded target color, for corrected-vs-target comparison.</summary>
-    public static RawImage ComposeWithTarget(RawImage image, byte r, byte g, byte b)
-    {
-        var composed = image.Clone();
-        int half = composed.Width / 2;
-        for (int y = 0; y < composed.Height; y++)
-        {
-            var row = composed.Row(y);
-            for (int x = half; x < composed.Width; x++)
-            {
-                row[x * 3] = r;
-                row[x * 3 + 1] = g;
-                row[x * 3 + 2] = b;
-            }
-        }
-
-        return composed;
-    }
-
     /// <summary>Converts an RGB24 RawImage to an Avalonia bitmap for display.</summary>
     public static WriteableBitmap ToBitmap(RawImage image)
     {
