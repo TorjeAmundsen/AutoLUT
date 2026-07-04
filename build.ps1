@@ -51,6 +51,7 @@ function Build($rid) {
         # Remove debug symbols from output
         Get-ChildItem "$output" -Filter "*.pdb" -ErrorAction SilentlyContinue | Remove-Item
 
+        CopySavestates $output
         Write-Host "  Output: $output"
         return $output
     }
@@ -81,8 +82,14 @@ function Build($rid) {
         Get-ChildItem "$output" -Filter "*.pdb" -ErrorAction SilentlyContinue | Remove-Item
     }
 
+    CopySavestates $output
     Write-Host "  Output: $output"
     return $output
+}
+
+function CopySavestates($outputPath) {
+    New-Item -ItemType Directory -Path "$outputPath/savestates" -Force | Out-Null
+    Copy-Item -Path "$PSScriptRoot/savestates/lut_gzs_*" -Destination "$outputPath/savestates" -Recurse
 }
 
 function ZipBuild($outputPath, $rid) {
@@ -94,11 +101,28 @@ function ZipBuild($outputPath, $rid) {
     Write-Host "  Zipped: $zipName"
 }
 
+function ZipSavestates() {
+    $zipName = "$PSScriptRoot/build/savestates-$appVersion.zip"
+
+    if (Test-Path $zipName) { Remove-Item $zipName }
+
+    Compress-Archive -Path "$PSScriptRoot/savestates/lut_gzs_*" -DestinationPath $zipName
+    Write-Host "  Zipped: $zipName"
+}
+
+if ($args -contains "--savestates") {
+    if (-not (Test-Path "$PSScriptRoot/build")) { New-Item -ItemType Directory -Path "$PSScriptRoot/build" | Out-Null }
+    ZipSavestates
+    Write-Host "Build complete."
+    exit 0
+}
+
 if ($args -contains "--all") {
     foreach ($rid in $rids) {
         $out = Build $rid
         ZipBuild $out $rid
     }
+    ZipSavestates
     Write-Host "Build complete."
     exit 0
 }

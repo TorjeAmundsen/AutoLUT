@@ -4,6 +4,7 @@
     <OutputType>WinExe</OutputType>
     <AssemblyName>AutoLUT</AssemblyName>
     <Version>0.2.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <PublishAot>true</PublishAot>
     <StripSymbols>true</StripSymbols>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
