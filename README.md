@@ -4,6 +4,8 @@ Download the [latest release](/../../releases/latest) for your platform. The bui
 
 # AutoLUT
 
+<img width="960" height="240" alt="autolut" src="https://github.com/user-attachments/assets/982f0f37-fa42-47ba-85a4-d0a3550d3c33" />
+
 AutoLUT generates an OBS-compatible `LUT.png` that color-corrects your Wii capture to match the console's true output colors. Apply it with OBS's built-in **Apply LUT** filter and your stream/recording colors match what the game actually outputs - no manual tweaking of curves or sliders.
 
 Calibration uses [gz](https://github.com/glankk/gz) savestates that fill the entire screen with known colors. Because AutoLUT knows exactly which color each savestate displays, it can measure precisely how your capture chain distorts colors and compute the correction.
