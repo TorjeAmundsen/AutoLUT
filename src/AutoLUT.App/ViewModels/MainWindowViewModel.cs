@@ -54,7 +54,17 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task AddScreenshotsAsync()
     {
-        var picked = await _files.PickPngScreenshotsAsync();
+        IReadOnlyList<(string Name, byte[] Data)> picked;
+        try
+        {
+            picked = await _files.PickPngScreenshotsAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Could not read the selected files: {ex.Message}";
+            return;
+        }
+
         foreach (var (name, data) in picked)
         {
             try
@@ -163,20 +173,33 @@ public partial class MainWindowViewModel : ObservableObject
         if (_lutImage is null)
             return;
 
-        var stream = await _files.CreateSaveFileAsync("LUT.png");
-        if (stream is null)
-            return;
-
-        await using (stream)
+        try
         {
-            var lutImage = _lutImage;
-            using var memory = new MemoryStream();
-            await Task.Run(() => _codec.EncodePng(lutImage, memory));
-            memory.Position = 0;
-            await memory.CopyToAsync(stream);
-        }
+            var stream = await _files.CreateSaveFileAsync("LUT.png");
+            if (stream is null)
+                return;
 
-        StatusText = "LUT.png saved. In OBS: Filters → Apply LUT → select the file.";
+            await using (stream)
+            {
+                var lutImage = _lutImage;
+                using var memory = new MemoryStream();
+                await Task.Run(() => _codec.EncodePng(lutImage, memory));
+                memory.Position = 0;
+                await memory.CopyToAsync(stream);
+            }
+
+            StatusText = "LUT.png saved. In OBS: Filters → Apply LUT → select the file.";
+        }
+        catch (Exception ex)
+        {
+            // Writing into protected locations (e.g. OBS's own LUTs folder under Program Files)
+            // throws UnauthorizedAccessException without elevation - report instead of crashing.
+            await _dialogs.ShowWarningAsync("Save failed",
+                $"Could not save the LUT: {ex.Message}\n\nPick a folder you have write access to, such as "
+                + "Documents or Desktop. OBS can load LUT.png from any location - it does not need to be "
+                + "in the OBS program folder.");
+            StatusText = "Save failed.";
+        }
     }
 
     private async Task UpdatePreviewAsync()

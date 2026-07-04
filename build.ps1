@@ -48,8 +48,9 @@ function Build($rid) {
             exit $LASTEXITCODE
         }
 
-        # Remove debug symbols from output
+        # Remove debug symbols from output (.pdb on Windows, .dbg from Linux StripSymbols)
         Get-ChildItem "$output" -Filter "*.pdb" -ErrorAction SilentlyContinue | Remove-Item
+        Get-ChildItem "$output" -Filter "*.dbg" -ErrorAction SilentlyContinue | Remove-Item
 
         CopySavestates $output
         Write-Host "  Output: $output"
@@ -80,6 +81,7 @@ function Build($rid) {
     # Remove debug symbols from output (unless --debug specified)
     if (-not $debug) {
         Get-ChildItem "$output" -Filter "*.pdb" -ErrorAction SilentlyContinue | Remove-Item
+        Get-ChildItem "$output" -Filter "*.dbg" -ErrorAction SilentlyContinue | Remove-Item
     }
 
     CopySavestates $output
