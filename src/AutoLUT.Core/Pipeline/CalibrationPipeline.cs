@@ -1,65 +1,58 @@
 using System.Security.Cryptography;
-using AutoLUT.Core.Alignment;
+using AutoLUT.Core.Calibration;
+using AutoLUT.Core.ColorScience;
 using AutoLUT.Core.Fitting;
 using AutoLUT.Core.Imaging;
 using AutoLUT.Core.Lut;
-using AutoLUT.Core.ReferenceData;
 using AutoLUT.Core.Sampling;
-using AutoLUT.Core.Validation;
 
 namespace AutoLUT.Core.Pipeline;
 
 /// <summary>
-/// Orchestrates validate → align → sample → fit → generate. Per-screenshot failures mark that
-/// screenshot invalid without aborting the run; the run fails only when nothing usable remains.
-/// Every stage is constructor-injected and independently replaceable.
+/// Orchestrates validate -> identify -> fit -> generate for gz solid-color captures.
+/// Ground truth is the commanded palette color, so there is nothing to align against;
+/// each capture contributes one correspondence (center-region mean -> commanded color).
+/// Per-screenshot failures mark that screenshot invalid without aborting the run.
 /// </summary>
 public sealed class CalibrationPipeline : ICalibrationPipeline
 {
-    private readonly ReferenceSet _references;
+    /// <summary>Minimum identified colors before fitting is attempted (palette has 39).</summary>
+    public const int MinimumIdentified = 20;
+
+    private const float NoiseScale = 4f / 255f;
+
     private readonly IImageCodec _codec;
-    private readonly IAligner _aligner;
-    private readonly IRegionSampler _sampler;
     private readonly IColorTransformFitter _fitter;
     private readonly ILutGenerator _lutGenerator;
     private readonly ILutWriter _lutWriter;
     private readonly RawImage _lutTemplate;
     private readonly FitOptions _fitOptions;
-    private readonly PipelineOptions _options;
 
     public CalibrationPipeline(
-        ReferenceSet references,
         IImageCodec codec,
-        IAligner aligner,
-        IRegionSampler sampler,
         IColorTransformFitter fitter,
         ILutGenerator lutGenerator,
         ILutWriter lutWriter,
         RawImage lutTemplate,
-        FitOptions? fitOptions = null,
-        PipelineOptions? options = null)
+        FitOptions? fitOptions = null)
     {
-        _references = references;
         _codec = codec;
-        _aligner = aligner;
-        _sampler = sampler;
         _fitter = fitter;
         _lutGenerator = lutGenerator;
         _lutWriter = lutWriter;
         _lutTemplate = lutTemplate;
-        _fitOptions = fitOptions ?? FitOptions.Default;
-        _options = options ?? PipelineOptions.Default;
+        // v2 correspondences are near-exact (center-mean noise ~0.01/255), so much less curve
+        // smoothing than FitOptions.Default: 0.05 flattens the gamma curvature we are fitting
+        // when mid-ramp knots carry only ~1 sample each.
+        _fitOptions = fitOptions ?? new FitOptions { CurveSmoothness = 0.01 };
     }
 
-    /// <summary>Default wiring against the embedded reference dataset and OBS LUT template.</summary>
+    /// <summary>Default wiring against the embedded OBS LUT template.</summary>
     public static CalibrationPipeline CreateDefault(IImageCodec codec)
     {
         using var templateStream = EmbeddedAssets.OpenOriginalLutTemplate();
         return new CalibrationPipeline(
-            ManifestLoader.LoadEmbedded(codec),
             codec,
-            new TranslationSearchAligner(),
-            new MeanRegionSampler(),
             new AffineCurvesFitter(),
             new TransformLutGenerator(),
             new ObsLutWriter(),
@@ -77,34 +70,92 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         IProgress<PipelineProgress>? progress,
         CancellationToken ct)
     {
-        var results = new List<ScreenshotResult>(screenshots.Count);
+        int n = screenshots.Count;
+        var names = screenshots.Select(s => s.Name).ToArray();
+        var errors = new string?[n];
+        var means = new Rgb?[n];
+        var stdDevs = new float[n];
         var seenHashes = new HashSet<string>();
-        var assignedReferences = new Dictionary<string, string>(); // reference id -> screenshot name
-        var correspondences = new List<ColorCorrespondence>();
-        int matchedRegionTotal = 0;
 
-        for (int i = 0; i < screenshots.Count; i++)
+        for (int i = 0; i < n; i++)
         {
             ct.ThrowIfCancellationRequested();
-            var shot = screenshots[i];
-            double fraction = (i + 1) / (double)screenshots.Count;
-            progress?.Report(new PipelineProgress(PipelineStage.Validating, $"Validating {shot.Name}...", fraction));
+            progress?.Report(new PipelineProgress(PipelineStage.Validating, $"Validating {names[i]}...", (i + 1) / (double)n));
 
-            var result = ProcessScreenshot(shot, seenHashes, assignedReferences, progress, fraction);
-            results.Add(result.Result);
-            if (result.Samples is not null)
+            RawImage image;
+            try
             {
-                correspondences.AddRange(result.Samples);
-                matchedRegionTotal += result.MatchedRegionCount;
+                using var stream = new MemoryStream(screenshots[i].Data);
+                image = _codec.Decode(stream);
             }
+            catch (InvalidDataException)
+            {
+                errors[i] = "could not be read as a PNG image.";
+                continue;
+            }
+
+            if (!seenHashes.Add(Convert.ToHexString(SHA256.HashData(screenshots[i].Data))))
+            {
+                errors[i] = "is a duplicate of another loaded screenshot.";
+                continue;
+            }
+
+            var analysis = SolidColorAnalyzer.Analyze(image);
+            if (!analysis.IsSolid)
+            {
+                errors[i] = "is not a solid color capture.";
+                continue;
+            }
+
+            means[i] = analysis.Mean;
+            stdDevs[i] = analysis.MaxStdDev;
         }
 
-        if (results.All(r => !r.IsValid))
-            return new CalibrationResult(results, "No valid screenshots. Fix the reported problems and try again.", null, null);
+        var validIndices = Enumerable.Range(0, n).Where(i => means[i] is not null).ToArray();
+        var warnings = new List<string>();
+        var targets = new PaletteColor?[n];
 
-        int required = Math.Max(_options.MinimumCorrespondences, (int)(matchedRegionTotal * _options.MinimumRegionFraction));
-        if (correspondences.Count < required)
-            return new CalibrationResult(results, "Insufficient valid calibration regions.", null, null);
+        if (validIndices.Length < MinimumIdentified)
+        {
+            return BuildResult(names, errors, targets, means, warnings,
+                $"Too few valid captures ({validIndices.Length}); need at least {MinimumIdentified} of the {CalibrationPalette.Colors.Count} palette colors.");
+        }
+
+        progress?.Report(new PipelineProgress(PipelineStage.Identifying, "Identifying colors..."));
+        var outcome = ColorIdentifier.Identify(validIndices.Select(i => means[i]!.Value).ToArray(), ct);
+        warnings.AddRange(outcome.Warnings);
+        if (outcome.GlobalError is not null)
+            return BuildResult(names, errors, targets, means, warnings, outcome.GlobalError);
+
+        for (int v = 0; v < validIndices.Length; v++)
+        {
+            int i = validIndices[v];
+            targets[i] = outcome.Assignments[v];
+            errors[i] ??= outcome.Errors[v];
+        }
+
+        int identified = targets.Count(t => t is not null);
+        var missingNeutrals = CalibrationPalette.Neutrals.Where(c => !targets.Contains(c)).ToList();
+        if (missingNeutrals.Count > 0)
+        {
+            return BuildResult(names, errors, targets, means, warnings,
+                $"Captures for all 9 gray palette colors are required (missing: {string.Join(", ", missingNeutrals.Select(c => c.Hex))}).");
+        }
+
+        if (identified < MinimumIdentified)
+        {
+            return BuildResult(names, errors, targets, means, warnings,
+                $"Too few identified colors ({identified} of {CalibrationPalette.Colors.Count}; need at least {MinimumIdentified}).");
+        }
+
+        var correspondences = new List<ColorCorrespondence>(identified);
+        for (int i = 0; i < n; i++)
+        {
+            if (targets[i] is not { } target || means[i] is not { } mean)
+                continue;
+            double noise = stdDevs[i] / NoiseScale;
+            correspondences.Add(new ColorCorrespondence(mean, target.ToRgb(), 1.0 / (1.0 + noise * noise), stdDevs[i] * stdDevs[i]));
+        }
 
         progress?.Report(new PipelineProgress(PipelineStage.Fitting, "Fitting transform..."));
         FitResult fit;
@@ -118,7 +169,7 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         }
         catch (Exception ex)
         {
-            return new CalibrationResult(results, $"Fitting failed: {ex.Message}", null, null);
+            return BuildResult(names, errors, targets, means, warnings, $"Fitting failed: {ex.Message}");
         }
 
         progress?.Report(new PipelineProgress(PipelineStage.GeneratingLut, "Generating LUT..."));
@@ -126,74 +177,21 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         var lutImage = _lutWriter.Bake(lut, _lutTemplate);
 
         progress?.Report(new PipelineProgress(PipelineStage.Finished, "Finished"));
-        return new CalibrationResult(results, null, lutImage, fit.Diagnostics);
+        var screenshotsOut = BuildScreenshots(names, errors, targets, means);
+        return new CalibrationResult(screenshotsOut, null, warnings, lutImage, fit.Diagnostics);
     }
 
-    private (ScreenshotResult Result, IReadOnlyList<ColorCorrespondence>? Samples, int MatchedRegionCount) ProcessScreenshot(
-        ScreenshotInput shot,
-        HashSet<string> seenHashes,
-        Dictionary<string, string> assignedReferences,
-        IProgress<PipelineProgress>? progress,
-        double fraction)
+    private static CalibrationResult BuildResult(
+        string[] names, string?[] errors, PaletteColor?[] targets, Rgb?[] means,
+        IReadOnlyList<string> warnings, string globalError) =>
+        new(BuildScreenshots(names, errors, targets, means), globalError, warnings, null, null);
+
+    private static ScreenshotResult[] BuildScreenshots(
+        string[] names, string?[] errors, PaletteColor?[] targets, Rgb?[] means)
     {
-        ScreenshotResult Fail(string error) => new(shot.Name, error, null, null, null, 0);
-
-        RawImage image;
-        try
-        {
-            using var stream = new MemoryStream(shot.Data);
-            image = _codec.Decode(stream);
-        }
-        catch (InvalidDataException)
-        {
-            return (Fail("could not be read as a PNG image."), null, 0);
-        }
-
-        if (!seenHashes.Add(Convert.ToHexString(SHA256.HashData(shot.Data))))
-            return (Fail("is a duplicate of another loaded screenshot."), null, 0);
-
-        var candidates = _references.WithDimensions(image.Width, image.Height).ToList();
-        if (candidates.Count == 0)
-        {
-            double ratio = image.Width / (double)image.Height;
-            bool ratioMatchesSomeReference = _references.References
-                .Any(r => Math.Abs(r.Image.Width / (double)r.Image.Height - ratio) < 0.01);
-            return ratioMatchesSomeReference
-                ? (Fail($"has incorrect dimensions ({image.Width}x{image.Height}). Screenshots must be unscaled captures."), null, 0)
-                : (Fail("has an unexpected aspect ratio. The capture appears stretched or cropped."), null, 0);
-        }
-
-        progress?.Report(new PipelineProgress(PipelineStage.Aligning, $"Computing alignment for {shot.Name}...", fraction));
-        ReferenceImage? bestReference = null;
-        AlignmentResult bestAlignment = default;
-        foreach (var candidate in candidates)
-        {
-            var alignment = _aligner.Align(image, candidate);
-            if (bestReference is null || alignment.Score > bestAlignment.Score)
-            {
-                bestReference = candidate;
-                bestAlignment = alignment;
-            }
-        }
-
-        if (bestAlignment.Score < _options.AlignmentThreshold)
-            return (Fail("does not match any expected savestate."), null, 0);
-
-        if (StructuralMatcher.Score(image, bestReference!, bestAlignment) < _options.StructuralThreshold)
-            return (Fail("does not match the expected savestate."), null, 0);
-
-        if (bestAlignment.AtSearchBoundary || CropCheck.BandsDiffer(image, bestReference!.Image))
-            return (Fail("appears cropped or misaligned."), null, 0);
-
-        if (!assignedReferences.TryAdd(bestReference.Id, shot.Name))
-            return (Fail($"shows the same savestate as '{assignedReferences[bestReference.Id]}'."), null, 0);
-
-        progress?.Report(new PipelineProgress(PipelineStage.Sampling, $"Collecting samples from {shot.Name}...", fraction));
-        var samples = _sampler.Sample(image, bestReference, bestAlignment);
-        if (samples.Count == 0)
-            return (Fail("has no usable calibration regions."), null, 0);
-
-        var result = new ScreenshotResult(shot.Name, null, bestReference.Id, bestReference.DisplayName, bestAlignment, samples.Count);
-        return (result, samples, bestReference.Regions.Count);
+        var results = new ScreenshotResult[names.Length];
+        for (int i = 0; i < names.Length; i++)
+            results[i] = new ScreenshotResult(names[i], errors[i], targets[i], means[i]);
+        return results;
     }
 }

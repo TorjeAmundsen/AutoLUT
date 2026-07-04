@@ -1,11 +1,9 @@
-using AutoLUT.Core.Alignment;
+using AutoLUT.Core.Calibration;
 using AutoLUT.Core.ColorScience;
 using AutoLUT.Core.Fitting;
 using AutoLUT.Core.Imaging;
 using AutoLUT.Core.Lut;
 using AutoLUT.Core.Pipeline;
-using AutoLUT.Core.ReferenceData;
-using AutoLUT.Core.Sampling;
 
 namespace UnitTests;
 
@@ -13,25 +11,8 @@ public class PipelineTests
 {
     private static readonly SkiaImageCodec Codec = new();
 
-    private static ReferenceSet MakeReferences(params int[] seeds) =>
-        new(seeds.Select(seed =>
-        {
-            var image = SyntheticScenes.Scene(640, 480, seed, rectangles: 32);
-            return new ReferenceImage($"ref{seed}", $"Scene {seed}", image, RegionDeriver.Derive(image));
-        }).ToList());
-
-    private static CalibrationPipeline MakePipeline(
-        ReferenceSet references, PipelineOptions? options = null, IAligner? aligner = null) =>
-        new(
-            references,
-            Codec,
-            aligner ?? new TranslationSearchAligner(),
-            new MeanRegionSampler(),
-            new AffineCurvesFitter(),
-            new TransformLutGenerator(),
-            new ObsLutWriter(),
-            TestImages.LoadTemplate(),
-            options: options);
+    private static CalibrationPipeline MakePipeline() =>
+        new(Codec, new AffineCurvesFitter(), new TransformLutGenerator(), new ObsLutWriter(), TestImages.LoadTemplate());
 
     private static byte[] Png(RawImage image)
     {
@@ -40,202 +21,165 @@ public class PipelineTests
         return stream.ToArray();
     }
 
-    private static ScreenshotInput Shot(string name, RawImage image) => new(name, Png(image));
-
-    /// <summary>Analog-capture-like degradation: shift, color shift, blur, noise.</summary>
-    private static RawImage Degrade(RawImage reference, int dx, int dy, int seed) =>
-        SyntheticScenes.AddNoise(
-            SyntheticScenes.BoxBlur(
-                SyntheticScenes.ColorShift(
-                    SyntheticScenes.Translate(reference, dx, dy))),
-            amplitude: 2, seed: seed);
-
-    private static float MeanRegionDeltaE(RawImage capture, ReferenceImage reference, int dx, int dy)
-    {
-        float total = 0;
-        int count = 0;
-        for (int i = 0; i < reference.Regions.Count; i++)
-        {
-            var region = reference.Regions[i];
-            var (mean, _) = RegionStatistics.Compute(capture, region.X + dx, region.Y + dy, region.Width, region.Height);
-            total += Oklab.DeltaESrgb(mean, reference.RegionMeans[i]);
-            count++;
-        }
-
-        return total / count;
-    }
+    /// <summary>One capture per palette color, degraded, in palette order.</summary>
+    private static List<ScreenshotInput> PaletteShots(SolidCaptures.Degradation degradation, int seedBase = 0) =>
+        CalibrationPalette.Colors
+            .Select((c, i) => new ScreenshotInput($"{c.Hex}.png", Png(SolidCaptures.Capture(c, degradation, 2, seedBase + i))))
+            .ToList();
 
     [Test]
-    public async Task EndToEnd_CorrectsColorShiftedCaptures()
+    public async Task EndToEnd_CorrectsDegradedCaptures()
     {
         // Arrange
-        var references = MakeReferences(101, 202);
-        var pipeline = MakePipeline(references);
-        var capture1 = Degrade(references.References[0].Image, 4, -3, seed: 1);
-        var capture2 = Degrade(references.References[1].Image, -5, 2, seed: 2);
+        var degradation = SolidCaptures.Degradation.Moderate;
+        var pipeline = MakePipeline();
 
         // Act
-        var result = await pipeline.RunAsync(
-            [Shot("cap1.png", capture1), Shot("cap2.png", capture2)], null, CancellationToken.None);
+        var result = await pipeline.RunAsync(PaletteShots(degradation), null, CancellationToken.None);
 
         // Assert
         Assert.That(result.Error, Is.Null);
         Assert.That(result.Success, Is.True);
         Assert.That(result.Screenshots.All(s => s.IsValid), Is.True);
-        Assert.That(result.Screenshots[0].ReferenceId, Is.EqualTo("ref101"));
-        Assert.That(result.Screenshots[1].ReferenceId, Is.EqualTo("ref202"));
 
-        // The LUT must pull the degraded capture's region colors close to the reference.
+        // Applying the LUT to each degraded capture must bring its color back to the commanded value.
         var applier = new ObsLutApplier(result.LutImage!);
-        float before = MeanRegionDeltaE(capture1, references.References[0], 4, -3);
-        float after = MeanRegionDeltaE(applier.Apply(capture1), references.References[0], 4, -3);
-        Assert.That(before, Is.GreaterThan(0.03f), "Degradation should be significant before correction.");
-        Assert.That(after, Is.LessThan(0.015f), $"Corrected error {after} too high (was {before}).");
+        float total = 0;
+        foreach (var color in CalibrationPalette.Colors)
+        {
+            var capture = SolidCaptures.Capture(color, degradation, 2, 1000 + color.R + color.G * 3 + color.B * 7);
+            var corrected = SolidColorAnalyzer.Analyze(applier.Apply(capture));
+            total += Oklab.DeltaESrgb(corrected.Mean, color.ToRgb());
+        }
+
+        float meanDeltaE = total / CalibrationPalette.Colors.Count;
+        Assert.That(meanDeltaE, Is.LessThan(0.015f), $"Mean dE {meanDeltaE} too high after correction.");
     }
 
     [Test]
-    public async Task Run_IsolatesPerScreenshotFailures()
+    public async Task EndToEnd_WorstDarkCorner_StillCorrects()
     {
         // Arrange
-        var references = MakeReferences(101, 202);
-        var pipeline = MakePipeline(references);
-        var shots = new[]
-        {
-            new ScreenshotInput("garbage.png", [1, 2, 3, 4]),
-            Shot("wrong-scene.png", SyntheticScenes.Scene(640, 480, seed: 999, rectangles: 32)),
-            Shot("good.png", Degrade(references.References[0].Image, 3, 1, seed: 3)),
-        };
+        var degradation = SolidCaptures.Degradation.WorstDark;
+        var pipeline = MakePipeline();
 
         // Act
-        var result = await pipeline.RunAsync(shots, null, CancellationToken.None);
+        var result = await pipeline.RunAsync(PaletteShots(degradation, seedBase: 50), null, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.Success, Is.True, result.Error);
+
+        var applier = new ObsLutApplier(result.LutImage!);
+        float total = 0;
+        foreach (var color in CalibrationPalette.Colors)
+        {
+            var capture = SolidCaptures.Capture(color, degradation, 2, 2000 + color.R + color.G * 3 + color.B * 7);
+            total += Oklab.DeltaESrgb(SolidColorAnalyzer.Analyze(applier.Apply(capture)).Mean, color.ToRgb());
+        }
+
+        float meanDeltaE = total / CalibrationPalette.Colors.Count;
+        Assert.That(meanDeltaE, Is.LessThan(0.02f), $"Mean dE {meanDeltaE} too high after correction.");
+    }
+
+    [Test]
+    public async Task Run_IsolatesNonSolidCapture()
+    {
+        // Arrange: one gradient capture among the valid ones.
+        var shots = PaletteShots(SolidCaptures.Degradation.Moderate, seedBase: 100);
+        var gradient = SolidCaptures.Solid(320, 240, 0, 0, 0);
+        for (int y = 0; y < gradient.Height; y++)
+        {
+            var row = gradient.Row(y);
+            for (int x = 0; x < gradient.Width; x++)
+                row[x * 3] = (byte)(255 * x / gradient.Width);
+        }
+
+        shots.Add(new ScreenshotInput("gradient.png", Png(gradient)));
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
 
         // Assert
         Assert.That(result.Success, Is.True);
-        Assert.That(result.Screenshots[0].Error, Does.Contain("PNG"));
-        Assert.That(result.Screenshots[1].Error, Does.Contain("savestate"));
-        Assert.That(result.Screenshots[2].IsValid, Is.True);
+        Assert.That(result.Screenshots[^1].Error, Does.Contain("solid"));
     }
 
     [Test]
     public async Task Run_RejectsExactDuplicates()
     {
         // Arrange
-        var references = MakeReferences(101);
-        var pipeline = MakePipeline(references);
-        var shot = Shot("cap.png", Degrade(references.References[0].Image, 0, 0, seed: 4));
+        var shots = PaletteShots(SolidCaptures.Degradation.Moderate, seedBase: 200);
+        shots.Add(shots[0] with { Name = "copy.png" });
 
         // Act
-        var result = await pipeline.RunAsync([shot, shot with { Name = "copy.png" }], null, CancellationToken.None);
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
 
         // Assert
-        Assert.That(result.Screenshots[0].IsValid, Is.True);
-        Assert.That(result.Screenshots[1].Error, Does.Contain("duplicate"));
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.Screenshots[^1].Error, Does.Contain("duplicate"));
     }
 
     [Test]
-    public async Task Run_RejectsSecondCaptureOfSameSavestate()
-    {
-        // Arrange: two different captures (different noise) of the same reference scene.
-        var references = MakeReferences(101);
-        var pipeline = MakePipeline(references);
-        var shots = new[]
-        {
-            Shot("first.png", Degrade(references.References[0].Image, 2, 2, seed: 5)),
-            Shot("second.png", Degrade(references.References[0].Image, -2, 1, seed: 6)),
-        };
-
-        // Act
-        var result = await pipeline.RunAsync(shots, null, CancellationToken.None);
-
-        // Assert
-        Assert.That(result.Screenshots[0].IsValid, Is.True);
-        Assert.That(result.Screenshots[1].Error, Does.Contain("same savestate"));
-    }
-
-    [Test]
-    public async Task Run_RejectsWrongDimensions()
-    {
-        // Arrange: same aspect ratio, half resolution - reads as a scaled capture.
-        var references = MakeReferences(101);
-        var pipeline = MakePipeline(references);
-
-        // Act
-        var result = await pipeline.RunAsync(
-            [Shot("small.png", SyntheticScenes.Scene(320, 240, seed: 1))], null, CancellationToken.None);
-
-        // Assert
-        Assert.That(result.Screenshots[0].Error, Does.Contain("dimensions"));
-        Assert.That(result.Success, Is.False);
-    }
-
-    [Test]
-    public async Task Run_ReportsCropWhenAlignmentHitsSearchBoundary()
-    {
-        // Arrange: substitute aligner claims a perfect score at the search boundary.
-        var references = MakeReferences(101);
-        var aligner = Substitute.For<IAligner>();
-        aligner.Align(Arg.Any<RawImage>(), Arg.Any<ReferenceImage>())
-            .Returns(new AlignmentResult(0, 0, 0.95, AtSearchBoundary: true));
-        var pipeline = MakePipeline(references, aligner: aligner);
-
-        // Act
-        var result = await pipeline.RunAsync(
-            [Shot("cap.png", references.References[0].Image.Clone())], null, CancellationToken.None);
-
-        // Assert
-        Assert.That(result.Screenshots[0].Error, Does.Contain("cropped"));
-    }
-
-    [Test]
-    public async Task Run_FailsWhenCorrespondencesInsufficient()
+    public async Task Run_FailsWithTooFewCaptures()
     {
         // Arrange
-        var references = MakeReferences(101);
-        var pipeline = MakePipeline(references, new PipelineOptions { MinimumCorrespondences = 100_000 });
+        var shots = PaletteShots(SolidCaptures.Degradation.Moderate, seedBase: 300).Take(10).ToList();
 
         // Act
-        var result = await pipeline.RunAsync(
-            [Shot("cap.png", Degrade(references.References[0].Image, 0, 0, seed: 7))], null, CancellationToken.None);
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
 
         // Assert
         Assert.That(result.Success, Is.False);
-        Assert.That(result.Error, Does.Contain("Insufficient"));
+        Assert.That(result.Error, Does.Contain("Too few"));
+    }
+
+    [Test]
+    public async Task Run_FailsWhenAGrayIsMissing()
+    {
+        // Arrange: all captures except one mid gray.
+        var degradation = SolidCaptures.Degradation.Moderate;
+        var shots = CalibrationPalette.Colors
+            .Where(c => c is not { IsNeutral: true, R: 96 })
+            .Select((c, i) => new ScreenshotInput($"{c.Hex}.png", Png(SolidCaptures.Capture(c, degradation, 2, 400 + i))))
+            .ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Error, Does.Contain("gray"));
     }
 
     [Test]
     public void Run_HonorsCancellation()
     {
         // Arrange
-        var references = MakeReferences(101);
-        var pipeline = MakePipeline(references);
+        var shots = PaletteShots(SolidCaptures.Degradation.Moderate, seedBase: 600);
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
         // Act + Assert
-        Assert.CatchAsync<OperationCanceledException>(() => pipeline.RunAsync(
-            [Shot("cap.png", references.References[0].Image.Clone())], null, cts.Token));
+        Assert.CatchAsync<OperationCanceledException>(() => MakePipeline().RunAsync(shots, null, cts.Token));
     }
 
     [Test]
     public async Task Run_ReportsProgressThroughAllStages()
     {
         // Arrange
-        var references = MakeReferences(101);
-        var pipeline = MakePipeline(references);
+        var shots = PaletteShots(SolidCaptures.Degradation.Moderate, seedBase: 700);
         var stages = new List<PipelineStage>();
         var progress = Substitute.For<IProgress<PipelineProgress>>();
         progress.When(p => p.Report(Arg.Any<PipelineProgress>()))
             .Do(call => stages.Add(call.Arg<PipelineProgress>().Stage));
 
         // Act
-        var result = await pipeline.RunAsync(
-            [Shot("cap.png", Degrade(references.References[0].Image, 1, 1, seed: 8))], progress, CancellationToken.None);
+        var result = await MakePipeline().RunAsync(shots, progress, CancellationToken.None);
 
         // Assert
         Assert.That(result.Success, Is.True);
         Assert.That(stages, Does.Contain(PipelineStage.Validating));
-        Assert.That(stages, Does.Contain(PipelineStage.Aligning));
-        Assert.That(stages, Does.Contain(PipelineStage.Sampling));
+        Assert.That(stages, Does.Contain(PipelineStage.Identifying));
         Assert.That(stages, Does.Contain(PipelineStage.Fitting));
         Assert.That(stages, Does.Contain(PipelineStage.GeneratingLut));
         Assert.That(stages.Last(), Is.EqualTo(PipelineStage.Finished));

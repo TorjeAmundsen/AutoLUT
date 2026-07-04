@@ -22,10 +22,23 @@
       <ListBox Grid.Row="1" Margin="12,0,12,12" ItemsSource="{Binding Screenshots}" SelectedItem="{Binding SelectedScreenshot}">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:ScreenshotItemViewModel">
-            <StackPanel Spacing="2">
-              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-              <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="11" TextWrapping="Wrap" />
-            </StackPanel>
+            <Grid ColumnDefinitions="Auto,*">
+              <Border
+                  Grid.Column="0"
+                  Width="16"
+                  Height="16"
+                  Margin="0,2,8,0"
+                  VerticalAlignment="Top"
+                  CornerRadius="3"
+                  BorderBrush="Gray"
+                  BorderThickness="1"
+                  Background="{Binding SwatchBrush}"
+                  IsVisible="{Binding SwatchBrush, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <StackPanel Grid.Column="1" Spacing="2">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="11" TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>

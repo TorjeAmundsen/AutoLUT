@@ -30,7 +30,7 @@ public partial class MainWindowViewModel : ObservableObject
     private bool _showCorrected;
 
     [ObservableProperty]
-    private string _statusText = "Load calibration screenshots to begin.";
+    private string _statusText = "Capture the 39 gz calibration colors, then add the screenshots here.";
 
     [ObservableProperty]
     private Bitmap? _previewImage;
@@ -112,15 +112,16 @@ public partial class MainWindowViewModel : ObservableObject
         for (int i = 0; i < items.Count && i < result.Screenshots.Count; i++)
         {
             var shot = result.Screenshots[i];
-            if (shot.IsValid)
-                items[i].SetOk($"Matched {shot.ReferenceName} ({shot.SampleCount} regions)");
+            if (shot is { IsValid: true, Target: { } target })
+                items[i].SetIdentified(target);
             else
-                items[i].SetError($"{shot.Name} {shot.Error}");
+                items[i].SetError($"{shot.Name} {shot.Error ?? "was not identified."}");
         }
 
+        string warningSuffix = result.Warnings.Count > 0 ? $" Warning: {result.Warnings[0]}" : "";
         if (!result.Success)
         {
-            StatusText = result.Error ?? "Calibration failed.";
+            StatusText = (result.Error ?? "Calibration failed.") + warningSuffix;
             return;
         }
 
@@ -131,9 +132,9 @@ public partial class MainWindowViewModel : ObservableObject
         _lutGeneration++;
         HasLut = true;
         ShowCorrected = true;
-        StatusText = result.Diagnostics is { } d
+        StatusText = (result.Diagnostics is { } d
             ? $"Finished - mean ΔE {d.MeanDeltaE:F4}, p95 {d.P95DeltaE:F4}, {d.InlierCount}/{d.TotalCount} inliers."
-            : "Finished";
+            : "Finished") + warningSuffix;
         await UpdatePreviewAsync();
     }
 
@@ -176,7 +177,13 @@ public partial class MainWindowViewModel : ObservableObject
         {
             if (item.Corrected is null || item.CorrectedGeneration != _lutGeneration)
             {
-                var corrected = await Task.Run(() => applier.Apply(item.Image));
+                // Right half shows the commanded palette color so corrected-vs-target is one glance.
+                var target = item.Target;
+                var corrected = await Task.Run(() =>
+                {
+                    var applied = applier.Apply(item.Image);
+                    return target is null ? applied : PreviewRenderer.ComposeWithTarget(applied, target.R, target.G, target.B);
+                });
                 if (version != _previewVersion)
                     return; // superseded by a newer preview request
                 item.Corrected = corrected;
