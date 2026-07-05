@@ -187,6 +187,12 @@ public partial class MainWindowViewModel : ObservableObject
             await _dialogs.ShowWarningAsync("Color range mismatch detected", rangeWarning);
         }
 
+        // A color space mismatch distorts every chromatic capture, so it also gets a modal.
+        if (result.ColorSpaceWarning is { } colorSpaceWarning)
+        {
+            await _dialogs.ShowWarningAsync("Color space mismatch detected", colorSpaceWarning);
+        }
+
         string warningSuffix = result.Warnings.Count > 0 ? $" Warning: {string.Join(" ", result.Warnings)}" : "";
         if (!result.Success)
         {

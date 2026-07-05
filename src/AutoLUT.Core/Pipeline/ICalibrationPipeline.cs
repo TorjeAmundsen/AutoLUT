@@ -44,7 +44,8 @@ public sealed record CalibrationResult(
     IReadOnlyList<string> Warnings,
     string? ColorRangeWarning,
     RawImage? LutImage,
-    FitDiagnostics? Diagnostics)
+    FitDiagnostics? Diagnostics,
+    string? ColorSpaceWarning = null)
 {
     public bool Success => Error is null && LutImage is not null;
 }

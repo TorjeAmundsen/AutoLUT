@@ -59,6 +59,29 @@ internal static class SolidCaptures
         Math.Clamp((c.G * 255f - 16f) * 255f / 219f, 0f, 255f) / 255f,
         Math.Clamp((c.B * 255f - 16f) * 255f / 219f, 0f, 255f) / 255f);
 
+    /// <summary>
+    /// Rec.601-encoded content decoded as Rec.709 (N_A = Decode709 * Encode601), on gamma-encoded RGB.
+    /// Rows sum to 1, so grays are untouched and only chromatic colors rotate; saturated colors clip.
+    /// </summary>
+    public static Rgb Mismatch601as709(Rgb c) => ApplyMatrix(c,
+        1.086400f, -0.072354f, -0.014050f,
+        0.096547f, 0.845041f, 0.058402f,
+        -0.014146f, -0.027694f, 1.041800f);
+
+    /// <summary>Rec.709-encoded content decoded as Rec.601 (N_B = Decode601 * Encode709), on gamma-encoded RGB.</summary>
+    public static Rgb Mismatch709as601(Rgb c) => ApplyMatrix(c,
+        0.913600f, 0.078477f, 0.007922f,
+        -0.105041f, 1.172175f, -0.067126f,
+        0.009578f, 0.032122f, 0.958200f);
+
+    private static Rgb ApplyMatrix(Rgb c,
+        float m00, float m01, float m02,
+        float m10, float m11, float m12,
+        float m20, float m21, float m22) => new(
+        Math.Clamp(m00 * c.R + m01 * c.G + m02 * c.B, 0f, 1f),
+        Math.Clamp(m10 * c.R + m11 * c.G + m12 * c.B, 0f, 1f),
+        Math.Clamp(m20 * c.R + m21 * c.G + m22 * c.B, 0f, 1f));
+
     /// <summary>A solid capture of an arbitrary already-degraded color plus noise.</summary>
     public static RawImage CaptureColor(Rgb value, int noiseAmplitude, int seed, int width = 320, int height = 240)
     {
@@ -118,5 +141,11 @@ internal static class SolidCaptures
     public static List<Rgb> DegradedMeans(Degradation degradation, int noiseAmplitude = 2, int seedBase = 100) =>
         CalibrationPalette.Colors
             .Select((c, i) => SolidColorAnalyzer.Analyze(Capture(c, degradation, noiseAmplitude, seedBase + i)).Mean)
+            .ToList();
+
+    /// <summary>Center-region means for all palette colors distorted by an arbitrary chain, in palette order.</summary>
+    public static List<Rgb> Means(Func<Rgb, Rgb> chain, int noiseAmplitude = 2, int seedBase = 100) =>
+        CalibrationPalette.Colors
+            .Select((c, i) => SolidColorAnalyzer.Analyze(CaptureColor(chain(c.ToRgb()), noiseAmplitude, seedBase + i)).Mean)
             .ToList();
 }
