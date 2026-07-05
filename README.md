@@ -36,6 +36,8 @@ Calibration uses [gz](https://github.com/glankk/gz) savestates that fill the ent
 
 ### Capture requirements
 
+- In OBS, open **Settings -> Advanced -> Video** and set **Color Space** to **Rec. 709** and **Color Range** to **Limited**, since this is what modern streaming sites expect. In your capture source's **Properties**, set its **Color Space** to **Rec. 601** if that option exists, since this is the color space the Wii and N64 output. Mismatched color space settings distort the capture before AutoLUT ever sees it.
+  - Exception: if a scaler or internal HDMI mod sits between the console and your capture card - RetroTINK, PixelFX, Retro GEM, and similar - it has already converted the signal to **Rec. 709**, so leave the source's Color Space at **Rec. 709**. This means actual hardware HDMI mods only; passive adapters like Wii2HDMI do not convert color space, so they stay at **Rec. 601**.
 - All 9 gray savestates (including black and white) are required; at least 20 of the 39 colors total must be identified. More colors = better correction.
 - Any capture resolution works.
 - Each color should be captured exactly once - duplicates are rejected.

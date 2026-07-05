@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <AssemblyName>AutoLUT</AssemblyName>
-    <Version>0.4.1</Version>
+    <Version>0.4.2</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationIcon>Assets/app.ico</ApplicationIcon>
     <PublishAot>true</PublishAot>
