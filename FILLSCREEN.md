@@ -53,8 +53,8 @@ gz savestates only load on the exact game version they were made for, so AutoLUT
 
 | Version | `fillScreen` | `screenFillColor` (R,G,B,A) |
 |---|---|---|
-| NTSC 1.0 | `0x801D8FA5` | `0x801D8FA6`–`0x801D8FA9` |
-| NTSC 1.1 | `0x801D9165` | `0x801D9166`–`0x801D9169` |
-| NTSC 1.2 | `0x801D9865` | `0x801D9866`–`0x801D9869` |
+| NTSC 1.0 | `0x801D8FA5` | `0x801D8FA6` - `0x801D8FA9` |
+| NTSC 1.1 | `0x801D9165` | `0x801D9166` - `0x801D9169` |
+| NTSC 1.2 | `0x801D9865` | `0x801D9866` - `0x801D9869` |
 
 **NTSC 1.1 savestates have not been made yet** - only 1.0 and 1.2 sets ship today. The 1.1 addresses are listed above and a 1.1 set will be generated on request.
