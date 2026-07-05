@@ -40,6 +40,10 @@ Calibration uses [gz](https://github.com/glankk/gz) savestates that fill the ent
 - If AutoLUT warns about washed-out or crushed colors, your capture device and OBS disagree on color range (full vs limited). Fix it in the capture source's **Properties** - set **Color Range** to 'Partial' for washed-out captures or 'Full' for crushed ones - then re-capture. Calibrating on a crushed capture loses shadow/highlight detail permanently, so always fix this first.
 - A capture marked **excluded as outlier** (orange) was identified but disagreed with what all your other captures say about your capture chain, so it did not influence the LUT. One or two are harmless; re-capture them for maximum quality. Many outliers means something changed mid-capture (settings, input, lighting) - re-capture the whole set.
 
+## How the color fill savestates work
+
+If you're curious about how the calibration savestates produce a known screen-fill color, see [FILLSCREEN.md](FILLSCREEN.md).
+
 ## Building from Source
 
 Requires .NET 10 SDK. Release builds use Native AOT compilation.
