@@ -12,7 +12,9 @@ public sealed class SkiaImageCodec : IImageCodec
         var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
         using var bitmap = new SKBitmap(info);
         if (codec.GetPixels(info, bitmap.GetPixels()) != SKCodecResult.Success)
+        {
             throw new InvalidDataException("Failed to decode image pixels.");
+        }
 
         var image = new RawImage(info.Width, info.Height);
         ReadOnlySpan<byte> rgba = bitmap.GetPixelSpan();

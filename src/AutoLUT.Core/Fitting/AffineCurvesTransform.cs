@@ -13,7 +13,10 @@ public sealed class AffineCurvesTransform : IColorTransform
     public AffineCurvesTransform(ReadOnlySpan<float> matrix3x4, MonotoneCurve curveR, MonotoneCurve curveG, MonotoneCurve curveB)
     {
         if (matrix3x4.Length != 12)
+        {
             throw new ArgumentException("Expected a row-major 3x4 matrix (12 values).", nameof(matrix3x4));
+        }
+
         _matrix = matrix3x4.ToArray();
         _curveR = curveR;
         _curveG = curveG;

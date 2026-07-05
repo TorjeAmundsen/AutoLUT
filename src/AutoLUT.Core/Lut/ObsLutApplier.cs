@@ -27,11 +27,15 @@ public sealed class ObsLutApplier
     public ObsLutApplier(RawImage lutImage)
     {
         if (lutImage.Width != ImageSize || lutImage.Height != ImageSize)
+        {
             throw new ArgumentException($"Expected a {ImageSize}x{ImageSize} LUT image, got {lutImage.Width}x{lutImage.Height}.", nameof(lutImage));
+        }
 
         Span<float> srgbToLinear = stackalloc float[256];
         for (int v = 0; v < 256; v++)
+        {
             srgbToLinear[v] = ColorSpace.SrgbToLinear(v / 255f);
+        }
 
         _linearLattice = new float[Size * Size * Size * 3];
         for (int b = 0; b < Size; b++)
@@ -39,13 +43,15 @@ public sealed class ObsLutApplier
             int tileX = b % TilesPerRow * Size;
             int tileY = b / TilesPerRow * Size;
             for (int g = 0; g < Size; g++)
-            for (int r = 0; r < Size; r++)
             {
-                var (pr, pg, pb) = lutImage.GetPixel(tileX + r, tileY + g);
-                int i = ((b * Size + g) * Size + r) * 3;
-                _linearLattice[i] = srgbToLinear[pr];
-                _linearLattice[i + 1] = srgbToLinear[pg];
-                _linearLattice[i + 2] = srgbToLinear[pb];
+                for (int r = 0; r < Size; r++)
+                {
+                    var (pr, pg, pb) = lutImage.GetPixel(tileX + r, tileY + g);
+                    int i = ((b * Size + g) * Size + r) * 3;
+                    _linearLattice[i] = srgbToLinear[pr];
+                    _linearLattice[i + 1] = srgbToLinear[pg];
+                    _linearLattice[i + 2] = srgbToLinear[pb];
+                }
             }
         }
 

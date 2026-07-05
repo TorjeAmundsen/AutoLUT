@@ -18,14 +18,14 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
     public FitResult Fit(IReadOnlyList<ColorCorrespondence> samples, FitOptions options, CancellationToken cancellationToken)
     {
         if (samples.Count < MinimumSamples)
+        {
             throw new ArgumentException($"At least {MinimumSamples} correspondences required, got {samples.Count}.", nameof(samples));
+        }
 
         int n = samples.Count;
         var robust = new double[n];
         Array.Fill(robust, 1.0);
         var weights = new double[n];
-
-        float[] matrix = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0];
         var curves = new MonotoneCurve[3];
         AffineCurvesTransform transform = null!;
         var oklabResiduals = new float[n];
@@ -36,12 +36,16 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
             cancellationToken.ThrowIfCancellationRequested();
 
             for (int i = 0; i < n; i++)
+            {
                 weights[i] = samples[i].Weight * robust[i];
+            }
 
-            matrix = FitMatrix(samples, weights, options.MatrixRidge);
+            float[] matrix = FitMatrix(samples, weights, options.MatrixRidge);
 
             for (int channel = 0; channel < 3; channel++)
+            {
                 curves[channel] = FitCurve(samples, weights, matrix, channel, options);
+            }
 
             transform = new AffineCurvesTransform(matrix, curves[0], curves[1], curves[2]);
 
@@ -78,7 +82,10 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
             {
                 double w = weights[i];
                 if (w <= 0)
+                {
                     continue;
+                }
+
                 var obs = samples[i].Observed;
                 x[0] = obs.R;
                 x[1] = obs.G;
@@ -88,7 +95,9 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
                 {
                     rhs[a] += w * x[a] * y;
                     for (int b = 0; b < 4; b++)
+                    {
                         normal[a, b] += w * x[a] * x[b];
+                    }
                 }
             }
 
@@ -97,12 +106,16 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
                 normal[a, a] += ridge;
                 // Identity row: coefficient 1 on the input channel matching this output channel.
                 if (a == channel)
+                {
                     rhs[a] += ridge;
+                }
             }
 
             double[] row = LinearSolver.Solve(normal, rhs);
             for (int a = 0; a < 4; a++)
+            {
                 matrix[channel * 4 + a] = (float)row[a];
+            }
         }
 
         return matrix;
@@ -124,7 +137,10 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
         {
             double w = weights[i];
             if (w <= 0)
+            {
                 continue;
+            }
+
             var obs = samples[i].Observed;
             float input = matrix[channel * 4] * obs.R + matrix[channel * 4 + 1] * obs.G
                 + matrix[channel * 4 + 2] * obs.B + matrix[channel * 4 + 3];
@@ -170,12 +186,18 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
 
         var pavaWeights = new double[knots];
         for (int k = 0; k < knots; k++)
+        {
             pavaWeights[k] = knotMass[k] + identityPull;
+        }
+
         double[] monotone = Pava.FitNonDecreasing(solved, pavaWeights);
 
         var values = new float[knots];
         for (int k = 0; k < knots; k++)
+        {
             values[k] = (float)monotone[k];
+        }
+
         return new MonotoneCurve(values);
     }
 
@@ -187,7 +209,10 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
 
         var deviations = new float[sorted.Length];
         for (int i = 0; i < sorted.Length; i++)
+        {
             deviations[i] = (float)Math.Abs(sorted[i] - median);
+        }
+
         Array.Sort(deviations);
         double mad = deviations[deviations.Length / 2];
 
@@ -219,7 +244,7 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
         float mean = residuals.Average();
         float median = sorted[sorted.Length / 2];
         float p95 = sorted[Math.Min((int)(sorted.Length * 0.95), sorted.Length - 1)];
-        bool[] inliers = robust.Select(w => w > 0).ToArray();
+        bool[] inliers = [.. robust.Select(w => w > 0)];
         return new FitDiagnostics(mean, median, p95, inliers.Count(i => i), residuals.Length, residuals, inliers);
     }
 

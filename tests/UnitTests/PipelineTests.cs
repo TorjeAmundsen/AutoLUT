@@ -23,9 +23,7 @@ public class PipelineTests
 
     /// <summary>One capture per palette color, degraded, in palette order.</summary>
     private static List<ScreenshotInput> PaletteShots(SolidCaptures.Degradation degradation, int seedBase = 0) =>
-        CalibrationPalette.Colors
-            .Select((c, i) => new ScreenshotInput($"{c.Hex}.png", Png(SolidCaptures.Capture(c, degradation, 2, seedBase + i))))
-            .ToList();
+        [.. CalibrationPalette.Colors.Select((c, i) => new ScreenshotInput($"{c.Hex}.png", Png(SolidCaptures.Capture(c, degradation, 2, seedBase + i))))];
 
     [Test]
     public async Task EndToEnd_CorrectsDegradedCaptures()
@@ -141,7 +139,9 @@ public class PipelineTests
         {
             var row = gradient.Row(y);
             for (int x = 0; x < gradient.Width; x++)
+            {
                 row[x * 3] = (byte)(255 * x / gradient.Width);
+            }
         }
 
         shots.Add(new ScreenshotInput("gradient.png", Png(gradient)));

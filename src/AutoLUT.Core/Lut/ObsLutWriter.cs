@@ -16,9 +16,14 @@ public sealed class ObsLutWriter : ILutWriter
     public RawImage Bake(Lut3D lut, RawImage template)
     {
         if (lut.Size != TileSize)
+        {
             throw new ArgumentException($"Expected a {TileSize}^3 LUT, got {lut.Size}^3.", nameof(lut));
+        }
+
         if (template.Width != ImageSize || template.Height != ImageSize)
+        {
             throw new ArgumentException($"Expected a {ImageSize}x{ImageSize} template, got {template.Width}x{template.Height}.", nameof(template));
+        }
 
         var output = template.Clone();
         for (int b = 0; b < TileSize; b++)
@@ -26,10 +31,12 @@ public sealed class ObsLutWriter : ILutWriter
             int tileX = b % TilesPerRow * TileSize;
             int tileY = b / TilesPerRow * TileSize;
             for (int g = 0; g < TileSize; g++)
-            for (int r = 0; r < TileSize; r++)
             {
-                var v = lut[r, g, b];
-                output.SetPixel(tileX + r, tileY + g, ToByte(v.R), ToByte(v.G), ToByte(v.B));
+                for (int r = 0; r < TileSize; r++)
+                {
+                    var v = lut[r, g, b];
+                    output.SetPixel(tileX + r, tileY + g, ToByte(v.R), ToByte(v.G), ToByte(v.B));
+                }
             }
         }
 

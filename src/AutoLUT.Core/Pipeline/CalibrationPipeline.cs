@@ -122,10 +122,12 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         }
 
         progress?.Report(new PipelineProgress(PipelineStage.Identifying, "Identifying colors..."));
-        var outcome = ColorIdentifier.Identify(validIndices.Select(i => means[i]!.Value).ToArray(), ct);
+        var outcome = ColorIdentifier.Identify([.. validIndices.Select(i => means[i]!.Value)], ct);
         warnings.AddRange(outcome.Warnings);
         if (outcome.GlobalError is not null)
+        {
             return BuildResult(names, errors, targets, means, warnings, outcome.GlobalError);
+        }
 
         for (int v = 0; v < validIndices.Length; v++)
         {
@@ -157,7 +159,10 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         for (int i = 0; i < n; i++)
         {
             if (targets[i] is not { } target || means[i] is not { } mean)
+            {
                 continue;
+            }
+
             double noise = stdDevs[i] / NoiseScale;
             correspondences.Add(new ColorCorrespondence(mean, target.ToRgb(), 1.0 / (1.0 + noise * noise), stdDevs[i] * stdDevs[i]));
             correspondenceShotIndex.Add(i);
@@ -184,7 +189,9 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
         var outliers = new bool[n];
         for (int k = 0; k < correspondenceShotIndex.Count; k++)
+        {
             outliers[correspondenceShotIndex[k]] = !fit.Diagnostics.Inliers[k];
+        }
 
         progress?.Report(new PipelineProgress(PipelineStage.Finished, "Finished"));
         var screenshotsOut = BuildScreenshots(names, errors, targets, means, outliers);
@@ -201,7 +208,10 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
     {
         var results = new ScreenshotResult[names.Length];
         for (int i = 0; i < names.Length; i++)
+        {
             results[i] = new ScreenshotResult(names[i], errors[i], targets[i], means[i], outliers?[i] ?? false);
+        }
+
         return results;
     }
 }

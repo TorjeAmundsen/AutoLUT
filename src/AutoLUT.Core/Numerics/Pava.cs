@@ -10,7 +10,9 @@ public static class Pava
     {
         int n = values.Length;
         if (weights.Length != n)
+        {
             throw new ArgumentException("Values and weights must have the same length.");
+        }
 
         // Blocks of pooled values: mean, weight, count.
         var mean = new double[n];
@@ -39,8 +41,12 @@ public static class Pava
         var result = new double[n];
         int index = 0;
         for (int blockIndex = 0; blockIndex < blocks; blockIndex++)
+        {
             for (int k = 0; k < count[blockIndex]; k++)
+            {
                 result[index++] = mean[blockIndex];
+            }
+        }
 
         return result;
     }

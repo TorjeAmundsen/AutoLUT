@@ -89,15 +89,19 @@ public class LutApplierTests
 
         var acc = new double[3];
         for (int db = 0; db <= 1; db++)
-        for (int dg = 0; dg <= 1; dg++)
-        for (int dr = 0; dr <= 1; dr++)
         {
-            double w = (db == 0 ? 1 - fb : fb) * (dg == 0 ? 1 - fg : fg) * (dr == 0 ? 1 - fr : fr);
-            int slice = b0 + db;
-            var (pr, pg, pb) = lutImage.GetPixel(slice % 8 * 64 + r0 + dr, slice / 8 * 64 + g0 + dg);
-            acc[0] += w * SrgbToLinear(pr / 255.0);
-            acc[1] += w * SrgbToLinear(pg / 255.0);
-            acc[2] += w * SrgbToLinear(pb / 255.0);
+            for (int dg = 0; dg <= 1; dg++)
+            {
+                for (int dr = 0; dr <= 1; dr++)
+                {
+                    double w = (db == 0 ? 1 - fb : fb) * (dg == 0 ? 1 - fg : fg) * (dr == 0 ? 1 - fr : fr);
+                    int slice = b0 + db;
+                    var (pr, pg, pb) = lutImage.GetPixel(slice % 8 * 64 + r0 + dr, slice / 8 * 64 + g0 + dg);
+                    acc[0] += w * SrgbToLinear(pr / 255.0);
+                    acc[1] += w * SrgbToLinear(pg / 255.0);
+                    acc[2] += w * SrgbToLinear(pb / 255.0);
+                }
+            }
         }
 
         return [EncodeByte(acc[0]), EncodeByte(acc[1]), EncodeByte(acc[2])];

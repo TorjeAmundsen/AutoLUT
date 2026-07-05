@@ -47,7 +47,7 @@ public class NumericsTests
     {
         // Pooled weighted mean of (10, w=1) and (0, w=3) is 2.5.
         double[] result = Pava.FitNonDecreasing([10, 0], [1, 3]);
-        Assert.That(result, Is.EqualTo(new double[] { 2.5, 2.5 }));
+        Assert.That(result, Is.EqualTo([2.5, 2.5]));
     }
 
     [Test]
@@ -68,6 +68,8 @@ public class NumericsTests
 
         // Assert
         for (int i = 1; i < result.Length; i++)
+        {
             Assert.That(result[i], Is.GreaterThanOrEqualTo(result[i - 1]));
+        }
     }
 }

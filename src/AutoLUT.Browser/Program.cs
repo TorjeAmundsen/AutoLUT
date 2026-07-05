@@ -8,7 +8,9 @@ internal static class Program
     {
         // main.js passes location.href - needed to build absolute URLs (savestates.zip download).
         if (args.Length > 0 && Uri.TryCreate(args[0], UriKind.Absolute, out var baseUri))
+        {
             App.BaseUri = baseUri;
+        }
 
         return BuildAvaloniaApp().StartBrowserAppAsync("out");
     }

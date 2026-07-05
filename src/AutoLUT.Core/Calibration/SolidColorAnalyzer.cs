@@ -8,7 +8,7 @@ public sealed record SolidAnalysis(Rgb Mean, float MaxStdDev, bool IsSolid);
 
 /// <summary>
 /// Measures the central 30% x 30% of the frame. gz fills the screen behind the game HUD, but the
-/// OoT HUD (hearts, buttons, counters, minimap) hugs the screen edges and never reaches the
+/// OoT HUD (hearts, buttons, rupees, minimap) hugs the screen edges and never reaches the
 /// central zone, so the fill there is unobstructed. Solid iff max per-channel stddev is under
 /// 10/255 (realistic analog worst case ~4.4/255: noise + interlace + shading tilt); textboxes,
 /// menus and gameplay frames blow far past it.

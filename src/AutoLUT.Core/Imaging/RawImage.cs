@@ -12,7 +12,10 @@ public sealed class RawImage
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(width, 0);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(height, 0);
         if (pixels.Length != width * height * 3)
+        {
             throw new ArgumentException($"Pixel buffer length {pixels.Length} does not match {width}x{height} RGB24.", nameof(pixels));
+        }
+
         Width = width;
         Height = height;
         Pixels = pixels;

@@ -150,9 +150,13 @@ public partial class MainWindowViewModel : ObservableObject
             if (shot is { IsValid: true, Target: { } target })
             {
                 if (shot.IsOutlier)
+                {
                     items[i].SetOutlier(target);
+                }
                 else
+                {
                     items[i].SetIdentified(target);
+                }
             }
             else
             {
@@ -163,7 +167,9 @@ public partial class MainWindowViewModel : ObservableObject
         // A color range mismatch silently ruins every capture, so it gets a modal dialog
         // instead of just a status-bar line.
         if (result.ColorRangeWarning is { } rangeWarning)
+        {
             await _dialogs.ShowWarningAsync("Color range mismatch detected", rangeWarning);
+        }
 
         string warningSuffix = result.Warnings.Count > 0 ? $" Warning: {string.Join(" ", result.Warnings)}" : "";
         if (!result.Success)
@@ -191,13 +197,17 @@ public partial class MainWindowViewModel : ObservableObject
     private async Task SaveLutAsync()
     {
         if (_lutImage is null)
+        {
             return;
+        }
 
         try
         {
             var stream = await _files.CreateSaveFileAsync("LUT.png");
             if (stream is null)
+            {
                 return;
+            }
 
             await using (stream)
             {
@@ -239,7 +249,10 @@ public partial class MainWindowViewModel : ObservableObject
             {
                 var corrected = await Task.Run(() => applier.Apply(item.Image));
                 if (version != _previewVersion)
+                {
                     return; // superseded by a newer preview request
+                }
+
                 item.Corrected = corrected;
                 item.CorrectedGeneration = _lutGeneration;
             }

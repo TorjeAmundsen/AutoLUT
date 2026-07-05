@@ -31,11 +31,11 @@ public static class CalibrationPalette
 
     /// <summary>The 9 neutral entries, dark to light (0, 32, 64, 96, 128, 160, 192, 224, 255).</summary>
     public static IReadOnlyList<PaletteColor> Neutrals { get; } =
-        Colors.Where(c => c.IsNeutral).OrderBy(c => c.R).ToArray();
+        [.. Colors.Where(c => c.IsNeutral).OrderBy(c => c.R)];
 
     /// <summary>The 24 chromatic grid colors - the only valid anchor targets.</summary>
     public static IReadOnlyList<PaletteColor> ChromaticGrid { get; } =
-        Colors.Where(c => c.Category == PaletteCategory.Grid).ToArray();
+        [.. Colors.Where(c => c.Category == PaletteCategory.Grid)];
 
     public static PaletteColor Black { get; } = Colors.First(c => c is { R: 0, G: 0, B: 0 });
 
@@ -47,16 +47,25 @@ public static class CalibrationPalette
 
         byte[] ramp = [0, 32, 64, 96, 128, 160, 192, 224, 255];
         foreach (byte v in ramp)
+        {
             colors.Add(new PaletteColor(v, v, v, PaletteCategory.Neutral));
+        }
 
         byte[] grid = [0, 128, 255];
         foreach (byte r in grid)
-        foreach (byte g in grid)
-        foreach (byte b in grid)
         {
-            if (r == g && g == b)
-                continue; // grid neutrals are in the ramp
-            colors.Add(new PaletteColor(r, g, b, PaletteCategory.Grid));
+            foreach (byte g in grid)
+            {
+                foreach (byte b in grid)
+                {
+                    if (r == g && g == b)
+                    {
+                        continue; // grid neutrals are in the ramp
+                    }
+
+                    colors.Add(new PaletteColor(r, g, b, PaletteCategory.Grid));
+                }
+            }
         }
 
         colors.Add(new PaletteColor(192, 64, 64, PaletteCategory.Mid));

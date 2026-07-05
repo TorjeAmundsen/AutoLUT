@@ -65,7 +65,9 @@ public class SolidColorAnalyzerTests
         {
             var row = image.Row(y);
             for (int x = 0; x < image.Width; x++)
+            {
                 row[x * 3] = row[x * 3 + 1] = row[x * 3 + 2] = (byte)(255 * x / image.Width);
+            }
         }
 
         // Act

@@ -51,16 +51,23 @@ public static class ColorIdentifier
         IdentificationOutcome Fail(string message) => new(assignments, errors, warnings, message);
 
         if (n < CalibrationPalette.Neutrals.Count + 2)
+        {
             return Fail($"Too few captures to identify ({n}). Capture the gz calibration palette colors.");
+        }
 
         // 1. Black and white by channel sum; any per-channel monotone capture map preserves them.
         int blackIndex = 0, whiteIndex = 0;
         for (int i = 1; i < n; i++)
         {
             if (Sum(means[i]) < Sum(means[blackIndex]))
+            {
                 blackIndex = i;
+            }
+
             if (Sum(means[i]) > Sum(means[whiteIndex]))
+            {
                 whiteIndex = i;
+            }
         }
 
         var black = means[blackIndex];
@@ -76,11 +83,15 @@ public static class ColorIdentifier
         for (int i = 0; i < n; i++)
         {
             if (i != whiteIndex)
+            {
                 whiteRunnerUpGap = Math.Min(whiteRunnerUpGap, (Sum(white) - Sum(means[i])) * 255);
+            }
         }
 
         if (whiteRunnerUpGap < ClippingWarnGap)
+        {
             warnings.Add("Capture appears to be clipping highlights - consider lowering capture brightness/contrast.");
+        }
 
         // 2. Pre-normalize per channel; residual degradation is pure gamma.
         var normalized = new Rgb[n];
@@ -101,7 +112,9 @@ public static class ColorIdentifier
         for (int i = 0; i < n; i++)
         {
             if (i == blackIndex || i == whiteIndex)
+            {
                 continue;
+            }
 
             PaletteColor? best = null;
             double bestDistance = double.MaxValue;
@@ -119,16 +132,23 @@ public static class ColorIdentifier
             foreach (var candidate in CalibrationPalette.Colors)
             {
                 if (candidate == best)
+                {
                     continue;
+                }
+
                 secondBest = Math.Min(secondBest, Distance(normalized[i], candidate));
             }
 
             if (best is not null && bestDistance <= AnchorMaxDistance && secondBest >= AnchorRatio * bestDistance)
+            {
                 anchorSamples.Add(new ColorCorrespondence(means[i], best.ToRgb(), 1.0, 0.0));
+            }
         }
 
         if (anchorSamples.Count < MinAnchors)
+        {
             return Fail("Captured colors could not be identified. Are these gz palette captures?");
+        }
 
         // 4. Rough affine fit (2-knot curves degenerate to a line; smoothing no-ops).
         var roughOptions = new FitOptions { CurveKnots = 2, RobustIterations = 2 };
@@ -136,15 +156,16 @@ public static class ColorIdentifier
 
         var corrected = new Rgb[n];
         for (int i = 0; i < n; i++)
+        {
             corrected[i] = rough.Apply(means[i]);
+        }
 
         // 5. Neutrals by rank of corrected luminance.
         var neutralRamp = CalibrationPalette.Neutrals;
-        int[] neutralIndices = Enumerable.Range(0, n)
+        int[] neutralIndices = [.. Enumerable.Range(0, n)
             .OrderBy(i => Spread(corrected[i]))
             .Take(neutralRamp.Count)
-            .OrderBy(i => Sum(corrected[i]))
-            .ToArray();
+            .OrderBy(i => Sum(corrected[i]))];
 
         for (int rank = 0; rank < neutralIndices.Length; rank++)
         {
@@ -152,27 +173,40 @@ public static class ColorIdentifier
             // shots are arbitrary, which is fine - their commanded values are what clipped together.
             int index = neutralIndices[rank];
             if (rank > 0 && Math.Abs(Sum(means[index]) - Sum(means[neutralIndices[rank - 1]])) * 255 < NeutralTieTolerance * 3)
+            {
                 warnings.Add($"Gray captures are nearly identical near {neutralRamp[rank].Hex} - highlights may be clipping.");
+            }
+
             assignments[index] = neutralRamp[rank];
         }
 
         if (assignments[blackIndex] != CalibrationPalette.Black || assignments[whiteIndex] != CalibrationPalette.White)
+        {
             return Fail("The gray captures could not be identified reliably. Make sure all 9 gray palette colors are captured exactly once.");
+        }
 
         // 6. Chromatics: greedy injective assignment on corrected distance.
         var chromaticPalette = CalibrationPalette.Colors.Where(c => !c.IsNeutral).ToList();
         var freeShots = Enumerable.Range(0, n).Where(i => assignments[i] is null).ToList();
         var pairs = new List<(int Shot, PaletteColor Color, double Distance)>();
         foreach (int i in freeShots)
-        foreach (var candidate in chromaticPalette)
-            pairs.Add((i, candidate, Distance255(corrected[i], candidate)));
+        {
+            foreach (var candidate in chromaticPalette)
+            {
+                pairs.Add((i, candidate, Distance255(corrected[i], candidate)));
+            }
+        }
+
         pairs.Sort((a, b) => a.Distance.CompareTo(b.Distance));
 
         var takenColors = new HashSet<PaletteColor>();
         foreach (var (shot, color, distance) in pairs)
         {
             if (assignments[shot] is not null || takenColors.Contains(color) || distance > ChromaticVerifyDistance)
+            {
                 continue;
+            }
+
             assignments[shot] = color;
             takenColors.Add(color);
         }

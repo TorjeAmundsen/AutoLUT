@@ -9,8 +9,10 @@ public class ColorIdentifierTests
     {
         Assert.That(outcome.GlobalError, Is.Null);
         for (int i = 0; i < expected.Count; i++)
+        {
             Assert.That(outcome.Assignments[i], Is.EqualTo(expected[i]),
                 $"Shot {i} (commanded {expected[i].Hex}): got {outcome.Assignments[i]?.Hex ?? "null"} ({outcome.Errors[i]})");
+        }
     }
 
     [Test]
@@ -58,9 +60,13 @@ public class ColorIdentifierTests
             var actual = outcome.Assignments[i];
             Assert.That(actual, Is.Not.Null, $"Shot {i} ({expected.Hex}) unassigned: {outcome.Errors[i]}");
             if (expected.IsNeutral && clippedGrays.Contains(expected.R))
+            {
                 Assert.That(clippedGrays, Does.Contain(actual!.R), $"Clipped gray {expected.Hex} got {actual.Hex}");
+            }
             else
+            {
                 Assert.That(actual, Is.EqualTo(expected), $"Shot {i} ({expected.Hex}) got {actual!.Hex}");
+            }
         }
     }
 
@@ -116,7 +122,9 @@ public class ColorIdentifierTests
         Assert.That(outcome.Assignments[^1], Is.Null);
         Assert.That(outcome.Errors[^1], Does.Contain("could not be matched"));
         for (int i = 0; i < CalibrationPalette.Colors.Count; i++)
+        {
             Assert.That(outcome.Assignments[i], Is.EqualTo(CalibrationPalette.Colors[i]));
+        }
     }
 
     [Test]

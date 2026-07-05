@@ -14,7 +14,9 @@ public partial class MainView : UserControl
         try
         {
             if (TopLevel.GetTopLevel(this) is { } topLevel)
+            {
                 await topLevel.Launcher.LaunchUriAsync(new Uri(ReadmeUrl));
+            }
         }
         catch
         {
@@ -28,7 +30,9 @@ public partial class MainView : UserControl
         {
             // The zip sits next to index.html on the Pages site; base URL comes from location.href.
             if (App.BaseUri is { } baseUri && TopLevel.GetTopLevel(this) is { } topLevel)
+            {
                 await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, "savestates.zip"));
+            }
         }
         catch
         {

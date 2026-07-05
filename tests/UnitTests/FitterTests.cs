@@ -32,7 +32,10 @@ public class FitterTests
             }
 
             if (corrupt is not null)
+            {
                 reference = corrupt(reference);
+            }
+
             samples.Add(new ColorCorrespondence(observed, reference, Weight: 1.0, ObservedVariance: 0.0));
         }
 

@@ -71,7 +71,9 @@ internal static class SolidCaptures
         {
             var rng = new Random(seed);
             for (int i = 0; i < image.Pixels.Length; i++)
+            {
                 image.Pixels[i] = (byte)Math.Clamp(image.Pixels[i] + rng.Next(-noiseAmplitude, noiseAmplitude + 1), 0, 255);
+            }
         }
 
         return image;
@@ -104,7 +106,9 @@ internal static class SolidCaptures
         {
             var rng = new Random(seed);
             for (int i = 0; i < image.Pixels.Length; i++)
+            {
                 image.Pixels[i] = (byte)Math.Clamp(image.Pixels[i] + rng.Next(-noiseAmplitude, noiseAmplitude + 1), 0, 255);
+            }
         }
 
         return image;
@@ -112,7 +116,5 @@ internal static class SolidCaptures
 
     /// <summary>Center-region means of degraded captures for all palette colors, in palette order.</summary>
     public static List<Rgb> DegradedMeans(Degradation degradation, int noiseAmplitude = 2, int seedBase = 100) =>
-        CalibrationPalette.Colors
-            .Select((c, i) => SolidColorAnalyzer.Analyze(Capture(c, degradation, noiseAmplitude, seedBase + i)).Mean)
-            .ToList();
+        [.. CalibrationPalette.Colors.Select((c, i) => SolidColorAnalyzer.Analyze(Capture(c, degradation, noiseAmplitude, seedBase + i)).Mean)];
 }
