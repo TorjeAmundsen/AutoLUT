@@ -75,7 +75,7 @@
         <StackPanel Spacing="10">
           <TextBlock Text="How to use AutoLUT" FontWeight="SemiBold" FontSize="16" />
           <TextBlock TextWrapping="Wrap" Text="{Binding HelpSavestatesStep}" />
-          <TextBlock TextWrapping="Wrap" Text="2. Load each savestate in gz and screenshot the solid color it displays - 39 colors, any order, any filenames. Screenshot the raw capture source: in OBS, right-click the source and use Screenshot (Source) with no filters." />
+          <TextBlock TextWrapping="Wrap" Text="2. Load each savestate in gz and screenshot the solid color it displays - 39 colors, any order, any filenames. Screenshot the raw capture source: in OBS, right-click the source and use Screenshot (Source) with no filters. Strongly recommended: bind a hotkey to Screenshot Selected Source (OBS Settings, Hotkeys) - 39 screenshots through the right-click menu is a good way to lose your mind." />
           <TextBlock TextWrapping="Wrap" Text="3. Click Add Screenshots and select all your captures, then Generate LUT." />
           <TextBlock TextWrapping="Wrap" Text="4. Check the result with Show Corrected Image - the preview matches exactly what OBS will render." />
           <TextBlock TextWrapping="Wrap" Text="5. Save LUT.png, then in OBS: right-click your capture source, Filters, add Apply LUT, and select the file." />
