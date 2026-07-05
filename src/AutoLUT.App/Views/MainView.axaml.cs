@@ -24,14 +24,16 @@ public partial class MainView : UserControl
         }
     }
 
-    private async void OnSavestatesLinkClick(object? sender, RoutedEventArgs e)
+    private async void OnSavestatesVersionClick(object? sender, RoutedEventArgs e)
     {
         try
         {
-            // The zip sits next to index.html on the Pages site; base URL comes from location.href.
-            if (App.BaseUri is { } baseUri && TopLevel.GetTopLevel(this) is { } topLevel)
+            // Each version's zip sits next to index.html on the Pages site; base URL comes from location.href.
+            if (sender is Control { Tag: string version }
+                && App.BaseUri is { } baseUri
+                && TopLevel.GetTopLevel(this) is { } topLevel)
             {
-                await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, "savestates.zip"));
+                await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, $"savestates-{version}.zip"));
             }
         }
         catch

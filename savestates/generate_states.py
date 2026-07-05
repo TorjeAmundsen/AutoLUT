@@ -60,13 +60,15 @@ def generate(version, entries):
     outdir = os.path.join(HERE, f"lut_gzs_{version}")
     os.makedirs(outdir, exist_ok=True)
 
-    for hex_rgba, name, rgba in entries:
+    width = len(str(len(entries)))
+    for idx, (hex_rgba, name, rgba) in enumerate(entries, 1):
         out = bytearray(data)
         out[color_off : color_off + 4] = rgba  # overwrite RGBA only
         assert len(out) == len(data)  # length unchanged -> size field valid
-        with open(os.path.join(outdir, name + ".gzs"), "wb") as of:
+        fname = f"{idx:0{width}d} {name}.gzs"
+        with open(os.path.join(outdir, fname), "wb") as of:
             of.write(out)
-        print(f"  {hex_rgba} -> lut_gzs_{version}/{name}.gzs")
+        print(f"  {hex_rgba} -> lut_gzs_{version}/{fname}")
 
     return len(entries)
 

@@ -69,9 +69,21 @@
                   Margin="8,0,0,0" />
           <Button DockPanel.Dock="Right"
                   Content="Download savestates"
-                  Click="OnSavestatesLinkClick"
                   IsVisible="{Binding ShowSavestatesLink}"
-                  Margin="8,0,0,0" />
+                  Margin="8,0,0,0">
+            <Button.Flyout>
+              <Flyout>
+                <StackPanel Spacing="4" MinWidth="160">
+                  <Button Content="gz 0.3.7 OoT 1.0" Tag="1.0" Click="OnSavestatesVersionClick"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                  <Button Content="gz 0.3.7 OoT 1.1" IsEnabled="False" ToolTip.Tip="Not made yet"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                  <Button Content="gz 0.3.7 OoT 1.2" Tag="1.2" Click="OnSavestatesVersionClick"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
           <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" TextWrapping="Wrap" />
         </DockPanel>
       </Grid>

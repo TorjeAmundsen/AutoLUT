@@ -36,7 +36,8 @@ jobs:
           # Jekyll would drop the _framework directory without this.
           touch "$SITE/.nojekyll"
           cd savestates
-          zip -r "../$SITE/savestates.zip" lut_gzs_1.0 lut_gzs_1.2
+          zip -r "../$SITE/savestates-1.0.zip" lut_gzs_1.0
+          zip -r "../$SITE/savestates-1.2.zip" lut_gzs_1.2
 
       - uses: actions/upload-pages-artifact@v5
         with:

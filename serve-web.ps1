@@ -13,10 +13,14 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-Write-Host "Bundling savestates.zip..."
+Write-Host "Bundling per-version savestate zips..."
 Compress-Archive `
-    -Path "$PSScriptRoot/savestates/lut_gzs_1.0", "$PSScriptRoot/savestates/lut_gzs_1.2" `
-    -DestinationPath "$site/savestates.zip" `
+    -Path "$PSScriptRoot/savestates/lut_gzs_1.0" `
+    -DestinationPath "$site/savestates-1.0.zip" `
+    -Force
+Compress-Archive `
+    -Path "$PSScriptRoot/savestates/lut_gzs_1.2" `
+    -DestinationPath "$site/savestates-1.2.zip" `
     -Force
 
 Write-Host "Serving at http://localhost:$port (Ctrl+C to stop)"
