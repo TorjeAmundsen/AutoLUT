@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using AutoLUT.App.Services;
+using AutoLUT.App.Services.Update;
 using AutoLUT.Core.Imaging;
 using AutoLUT.Core.Lut;
 using AutoLUT.Core.Pipeline;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -15,6 +17,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly IImageCodec _codec;
     private readonly IFilePickerService _files;
     private readonly IDialogService _dialogs;
+    private readonly Func<TopLevel?> _topLevel;
 
     private RawImage? _lutImage;
     private ObsLutApplier? _lutApplier;
@@ -45,6 +48,9 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>In the browser the savestates are not bundled next to an executable - offer them as a download.</summary>
     public bool ShowSavestatesLink => OperatingSystem.IsBrowser();
 
+    /// <summary>The update checker is desktop-only; the button is hidden in the browser build.</summary>
+    public bool IsDesktop => !OperatingSystem.IsBrowser();
+
     /// <summary>First help step differs per platform: web offers a download, desktop bundles the folder.</summary>
     public string HelpSavestatesStep => OperatingSystem.IsBrowser()
         ? "1. Get the calibration savestates with the Download savestates button below and copy the folder matching your game version (1.0 or 1.2) to your SD card."
@@ -59,12 +65,13 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void CloseHelp() => IsHelpOpen = false;
 
-    public MainWindowViewModel(ICalibrationPipeline pipeline, IImageCodec codec, IFilePickerService files, IDialogService dialogs)
+    public MainWindowViewModel(ICalibrationPipeline pipeline, IImageCodec codec, IFilePickerService files, IDialogService dialogs, Func<TopLevel?> topLevel)
     {
         _pipeline = pipeline;
         _codec = codec;
         _files = files;
         _dialogs = dialogs;
+        _topLevel = topLevel;
     }
 
     partial void OnSelectedScreenshotChanged(ScreenshotItemViewModel? value) => _ = UpdatePreviewAsync();
@@ -122,6 +129,15 @@ public partial class MainWindowViewModel : ObservableObject
         StatusText = "Capture the 39 gz calibration colors, then add the screenshots here.";
         GenerateCommand.NotifyCanExecuteChanged();
         ResetCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (_topLevel() is Window window)
+        {
+            await new UpdateService().CheckManuallyAsync(window, _dialogs);
+        }
     }
 
     private bool CanGenerate() => Screenshots.Count > 0;

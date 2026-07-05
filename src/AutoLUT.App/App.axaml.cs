@@ -1,4 +1,5 @@
 using AutoLUT.App.Services;
+using AutoLUT.App.Services.Update;
 using AutoLUT.App.ViewModels;
 using AutoLUT.App.Views;
 using AutoLUT.Core.Imaging;
@@ -25,6 +26,24 @@ public class App : Application
             var window = new MainWindow();
             window.DataContext = CreateViewModel(() => window, new DialogService(window));
             desktop.MainWindow = window;
+
+            // Desktop-only: check GitHub for a newer release once the window is up.
+            // Fire-and-forget and fully guarded - an updater must never take down startup.
+            window.Opened += async (_, _) =>
+            {
+                try
+                {
+                    var updater = new UpdateService();
+                    if (await updater.CheckForUpdateAsync() is { } info)
+                    {
+                        await updater.PromptAndMaybeUpdateAsync(window, info);
+                    }
+                }
+                catch
+                {
+                    // Ignore - never surface updater failures at launch.
+                }
+            };
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
         {
@@ -44,6 +63,7 @@ public class App : Application
             CalibrationPipeline.CreateDefault(codec),
             codec,
             new FilePickerService(topLevel),
-            dialogs);
+            dialogs,
+            topLevel);
     }
 }
