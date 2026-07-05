@@ -162,10 +162,11 @@ public static class ColorIdentifier
 
         // 5. Neutrals by rank of corrected luminance.
         var neutralRamp = CalibrationPalette.Neutrals;
-        int[] neutralIndices = [.. Enumerable.Range(0, n)
+        int[] neutralIndices = Enumerable.Range(0, n)
             .OrderBy(i => Spread(corrected[i]))
             .Take(neutralRamp.Count)
-            .OrderBy(i => Sum(corrected[i]))];
+            .OrderBy(i => Sum(corrected[i]))
+            .ToArray();
 
         for (int rank = 0; rank < neutralIndices.Length; rank++)
         {

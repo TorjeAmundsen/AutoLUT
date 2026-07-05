@@ -31,11 +31,11 @@ public static class CalibrationPalette
 
     /// <summary>The 9 neutral entries, dark to light (0, 32, 64, 96, 128, 160, 192, 224, 255).</summary>
     public static IReadOnlyList<PaletteColor> Neutrals { get; } =
-        [.. Colors.Where(c => c.IsNeutral).OrderBy(c => c.R)];
+        Colors.Where(c => c.IsNeutral).OrderBy(c => c.R).ToArray();
 
     /// <summary>The 24 chromatic grid colors - the only valid anchor targets.</summary>
     public static IReadOnlyList<PaletteColor> ChromaticGrid { get; } =
-        [.. Colors.Where(c => c.Category == PaletteCategory.Grid)];
+        Colors.Where(c => c.Category == PaletteCategory.Grid).ToArray();
 
     public static PaletteColor Black { get; } = Colors.First(c => c is { R: 0, G: 0, B: 0 });
 
@@ -75,6 +75,6 @@ public static class CalibrationPalette
         colors.Add(new PaletteColor(192, 64, 192, PaletteCategory.Mid));
         colors.Add(new PaletteColor(64, 192, 192, PaletteCategory.Mid));
 
-        return [.. colors];
+        return colors.ToArray();
     }
 }

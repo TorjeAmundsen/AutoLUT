@@ -122,7 +122,7 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         }
 
         progress?.Report(new PipelineProgress(PipelineStage.Identifying, "Identifying colors..."));
-        var outcome = ColorIdentifier.Identify([.. validIndices.Select(i => means[i]!.Value)], ct);
+        var outcome = ColorIdentifier.Identify(validIndices.Select(i => means[i]!.Value).ToArray(), ct);
         warnings.AddRange(outcome.Warnings);
         if (outcome.GlobalError is not null)
         {

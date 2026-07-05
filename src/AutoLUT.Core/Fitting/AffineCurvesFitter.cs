@@ -244,7 +244,7 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
         float mean = residuals.Average();
         float median = sorted[sorted.Length / 2];
         float p95 = sorted[Math.Min((int)(sorted.Length * 0.95), sorted.Length - 1)];
-        bool[] inliers = [.. robust.Select(w => w > 0)];
+        bool[] inliers = robust.Select(w => w > 0).ToArray();
         return new FitDiagnostics(mean, median, p95, inliers.Count(i => i), residuals.Length, residuals, inliers);
     }
 

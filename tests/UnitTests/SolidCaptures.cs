@@ -116,5 +116,7 @@ internal static class SolidCaptures
 
     /// <summary>Center-region means of degraded captures for all palette colors, in palette order.</summary>
     public static List<Rgb> DegradedMeans(Degradation degradation, int noiseAmplitude = 2, int seedBase = 100) =>
-        [.. CalibrationPalette.Colors.Select((c, i) => SolidColorAnalyzer.Analyze(Capture(c, degradation, noiseAmplitude, seedBase + i)).Mean)];
+        CalibrationPalette.Colors
+            .Select((c, i) => SolidColorAnalyzer.Analyze(Capture(c, degradation, noiseAmplitude, seedBase + i)).Mean)
+            .ToList();
 }

@@ -20,11 +20,12 @@ dotnet_diagnostic.IDE0060.severity = error
 csharp_style_prefer_switch_expression = true
 dotnet_diagnostic.IDE0066.severity = error
 
-# Prefer collection expressions ([]).
+# Prefer collection expressions ([]) - except IDE0305, which would rewrite
+# fluent .ToArray()/.ToList() calls into [.. x] spreads.
 dotnet_style_prefer_collection_expression = when_types_loosely_match
 dotnet_diagnostic.IDE0300.severity = error
 dotnet_diagnostic.IDE0301.severity = error
 dotnet_diagnostic.IDE0302.severity = error
 dotnet_diagnostic.IDE0303.severity = error
 dotnet_diagnostic.IDE0304.severity = error
-dotnet_diagnostic.IDE0305.severity = error
+dotnet_diagnostic.IDE0305.severity = none
