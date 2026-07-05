@@ -183,6 +183,13 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
             return BuildResult(names, errors, targets, means, warnings, $"Fitting failed: {ex.Message}", rangeWarning);
         }
 
+        // A 601/709 matrix mismatch is a gray-preserving cross-channel rotation the affine matrix
+        // absorbs, so it never shows on the grays ColorRangeCheck watches - read it off the fitted
+        // matrix instead. Advisory only: the LUT corrects the recoverable part.
+        string? colorSpaceWarning = fit.Transform is AffineCurvesTransform affine
+            ? ColorSpaceMatrixCheck.Detect(affine.Matrix)
+            : null;
+
         progress?.Report(new PipelineProgress(PipelineStage.GeneratingLut, "Generating LUT..."));
         var lut = _lutGenerator.Generate(fit.Transform);
         var lutImage = _lutWriter.Bake(lut, _lutTemplate);
@@ -195,7 +202,7 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
         progress?.Report(new PipelineProgress(PipelineStage.Finished, "Finished"));
         var screenshotsOut = BuildScreenshots(names, errors, targets, means, outliers);
-        return new CalibrationResult(screenshotsOut, null, warnings, rangeWarning, lutImage, fit.Diagnostics);
+        return new CalibrationResult(screenshotsOut, null, warnings, rangeWarning, lutImage, fit.Diagnostics, colorSpaceWarning);
     }
 
     private static CalibrationResult BuildResult(
