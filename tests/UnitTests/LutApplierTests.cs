@@ -18,11 +18,14 @@ public class LutApplierTests
         var result = applier.Apply(source);
 
         // Assert: the baked identity LUT quantizes lattice values to 8 bits, so allow 1 LSB.
-        for (int i = 0; i < source.Pixels.Length; i++)
+        using (Assert.EnterMultipleScope())
         {
-            int diff = Math.Abs(source.Pixels[i] - result.Pixels[i]);
-            Assert.That(diff, Is.LessThanOrEqualTo(1),
-                $"Pixel byte {i}: {source.Pixels[i]} -> {result.Pixels[i]} (diff {diff})");
+            for (int i = 0; i < source.Pixels.Length; i++)
+            {
+                int diff = Math.Abs(source.Pixels[i] - result.Pixels[i]);
+                Assert.That(diff, Is.LessThanOrEqualTo(1),
+                    $"Pixel byte {i}: {source.Pixels[i]} -> {result.Pixels[i]} (diff {diff})");
+            }
         }
     }
 
@@ -42,11 +45,14 @@ public class LutApplierTests
         byte r = (byte)MathF.Round(0.25f * 255f);
         byte g = (byte)MathF.Round(0.5f * 255f);
         byte b = (byte)MathF.Round(0.75f * 255f);
-        for (int i = 0; i < result.Pixels.Length; i += 3)
+        using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Pixels[i], Is.EqualTo(r));
-            Assert.That(result.Pixels[i + 1], Is.EqualTo(g));
-            Assert.That(result.Pixels[i + 2], Is.EqualTo(b));
+            for (int i = 0; i < result.Pixels.Length; i += 3)
+            {
+                Assert.That(result.Pixels[i], Is.EqualTo(r));
+                Assert.That(result.Pixels[i + 1], Is.EqualTo(g));
+                Assert.That(result.Pixels[i + 2], Is.EqualTo(b));
+            }
         }
     }
 
@@ -63,14 +69,17 @@ public class LutApplierTests
         var result = applier.Apply(source);
 
         // Assert
-        for (int i = 0; i < source.Pixels.Length; i += 3)
+        using (Assert.EnterMultipleScope())
         {
-            byte[] expected = ReferenceSample(lutImage, source.Pixels[i], source.Pixels[i + 1], source.Pixels[i + 2]);
-            for (int c = 0; c < 3; c++)
+            for (int i = 0; i < source.Pixels.Length; i += 3)
             {
-                int diff = Math.Abs(expected[c] - result.Pixels[i + c]);
-                Assert.That(diff, Is.LessThanOrEqualTo(1),
-                    $"Pixel {i / 3} channel {c}: expected {expected[c]}, got {result.Pixels[i + c]}");
+                byte[] expected = ReferenceSample(lutImage, source.Pixels[i], source.Pixels[i + 1], source.Pixels[i + 2]);
+                for (int c = 0; c < 3; c++)
+                {
+                    int diff = Math.Abs(expected[c] - result.Pixels[i + c]);
+                    Assert.That(diff, Is.LessThanOrEqualTo(1),
+                        $"Pixel {i / 3} channel {c}: expected {expected[c]}, got {result.Pixels[i + c]}");
+                }
             }
         }
     }

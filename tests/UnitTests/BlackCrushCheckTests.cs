@@ -39,8 +39,11 @@ public class BlackCrushCheckTests
     {
         // Gamma > 1 also extrapolates the upper ramp to a negative black, but its convex toe puts
         // gray32 well above the trend line - it must not masquerade as clipping.
-        Assert.That(BlackCrushCheck.Detect(Grays(SolidCaptures.Degradation.Moderate.Apply)), Is.Null);
-        Assert.That(BlackCrushCheck.Detect(Grays(SolidCaptures.Degradation.WorstDark.Apply)), Is.Null);
-        Assert.That(BlackCrushCheck.Detect(Grays(SolidCaptures.Degradation.WorstBright.Apply)), Is.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(BlackCrushCheck.Detect(Grays(SolidCaptures.Degradation.Moderate.Apply)), Is.Null);
+            Assert.That(BlackCrushCheck.Detect(Grays(SolidCaptures.Degradation.WorstDark.Apply)), Is.Null);
+            Assert.That(BlackCrushCheck.Detect(Grays(SolidCaptures.Degradation.WorstBright.Apply)), Is.Null);
+        }
     }
 }

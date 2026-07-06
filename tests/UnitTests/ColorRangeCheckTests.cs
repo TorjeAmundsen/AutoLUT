@@ -18,8 +18,11 @@ public class ColorRangeCheckTests
     {
         string? warning = Detect(SolidCaptures.Washout);
 
-        Assert.That(warning, Does.Contain("washed out"));
-        Assert.That(warning, Does.Contain("'Partial'"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(warning, Does.Contain("washed out"));
+            Assert.That(warning, Does.Contain("'Partial'"));
+        }
     }
 
     [Test]
@@ -27,8 +30,11 @@ public class ColorRangeCheckTests
     {
         string? warning = Detect(SolidCaptures.Crunch);
 
-        Assert.That(warning, Does.Contain("crushed"));
-        Assert.That(warning, Does.Contain("'Full'"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(warning, Does.Contain("crushed"));
+            Assert.That(warning, Does.Contain("'Full'"));
+        }
     }
 
     [Test]
@@ -42,8 +48,11 @@ public class ColorRangeCheckTests
     {
         // Gamma moves both ends the same direction and gain never lifts black - neither may
         // masquerade as a range mismatch.
-        Assert.That(Detect(SolidCaptures.Degradation.Moderate.Apply), Is.Null);
-        Assert.That(Detect(SolidCaptures.Degradation.WorstDark.Apply), Is.Null);
-        Assert.That(Detect(SolidCaptures.Degradation.WorstBright.Apply), Is.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Detect(SolidCaptures.Degradation.Moderate.Apply), Is.Null);
+            Assert.That(Detect(SolidCaptures.Degradation.WorstDark.Apply), Is.Null);
+            Assert.That(Detect(SolidCaptures.Degradation.WorstBright.Apply), Is.Null);
+        }
     }
 }

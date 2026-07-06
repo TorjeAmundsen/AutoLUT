@@ -15,8 +15,11 @@ public class SolidColorAnalyzerTests
         var analysis = SolidColorAnalyzer.Analyze(image);
 
         // Assert
-        Assert.That(analysis.IsSolid, Is.True);
-        Assert.That(analysis.MaxStdDev, Is.LessThan(SolidColorAnalyzer.StdDevThreshold));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(analysis.IsSolid, Is.True);
+            Assert.That(analysis.MaxStdDev, Is.LessThan(SolidColorAnalyzer.StdDevThreshold));
+        }
     }
 
     [Test]
@@ -36,10 +39,13 @@ public class SolidColorAnalyzerTests
         var analysis = SolidColorAnalyzer.Analyze(image);
 
         // Assert
-        Assert.That(analysis.IsSolid, Is.True);
-        Assert.That(analysis.Mean.R, Is.EqualTo(220f / 255f).Within(0.002f));
-        Assert.That(analysis.Mean.G, Is.EqualTo(6f / 255f).Within(0.002f));
-        Assert.That(analysis.Mean.B, Is.EqualTo(8f / 255f).Within(0.002f));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(analysis.IsSolid, Is.True);
+            Assert.That(analysis.Mean.R, Is.EqualTo(220f / 255f).Within(0.002f));
+            Assert.That(analysis.Mean.G, Is.EqualTo(6f / 255f).Within(0.002f));
+            Assert.That(analysis.Mean.B, Is.EqualTo(8f / 255f).Within(0.002f));
+        }
     }
 
     [Test]

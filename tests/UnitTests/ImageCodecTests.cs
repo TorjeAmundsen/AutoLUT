@@ -18,9 +18,12 @@ public class ImageCodecTests
         var decoded = codec.Decode(stream);
 
         // Assert
-        Assert.That(decoded.Width, Is.EqualTo(original.Width));
-        Assert.That(decoded.Height, Is.EqualTo(original.Height));
-        Assert.That(decoded.Pixels, Is.EqualTo(original.Pixels));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(decoded.Width, Is.EqualTo(original.Width));
+            Assert.That(decoded.Height, Is.EqualTo(original.Height));
+            Assert.That(decoded.Pixels, Is.EqualTo(original.Pixels));
+        }
     }
 
     [Test]

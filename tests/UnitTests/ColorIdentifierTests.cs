@@ -7,11 +7,14 @@ public class ColorIdentifierTests
 {
     private static void AssertAllAssigned(IdentificationOutcome outcome, IReadOnlyList<PaletteColor> expected)
     {
-        Assert.That(outcome.GlobalError, Is.Null);
-        for (int i = 0; i < expected.Count; i++)
+        using (Assert.EnterMultipleScope())
         {
-            Assert.That(outcome.Assignments[i], Is.EqualTo(expected[i]),
-                $"Shot {i} (commanded {expected[i].Hex}): got {outcome.Assignments[i]?.Hex ?? "null"} ({outcome.Errors[i]})");
+            Assert.That(outcome.GlobalError, Is.Null);
+            for (int i = 0; i < expected.Count; i++)
+            {
+                Assert.That(outcome.Assignments[i], Is.EqualTo(expected[i]),
+                    $"Shot {i} (commanded {expected[i].Hex}): got {outcome.Assignments[i]?.Hex ?? "null"} ({outcome.Errors[i]})");
+            }
         }
     }
 
@@ -51,21 +54,24 @@ public class ColorIdentifierTests
         var outcome = ColorIdentifier.Identify(means, CancellationToken.None);
 
         // Assert: everything assigned; the two clipped grays may swap ranks (their captures are identical).
-        Assert.That(outcome.GlobalError, Is.Null);
-        Assert.That(outcome.Warnings, Is.Not.Empty);
         byte[] clippedGrays = [224, 255];
-        for (int i = 0; i < CalibrationPalette.Colors.Count; i++)
+        using (Assert.EnterMultipleScope())
         {
-            var expected = CalibrationPalette.Colors[i];
-            var actual = outcome.Assignments[i];
-            Assert.That(actual, Is.Not.Null, $"Shot {i} ({expected.Hex}) unassigned: {outcome.Errors[i]}");
-            if (expected.IsNeutral && clippedGrays.Contains(expected.R))
+            Assert.That(outcome.GlobalError, Is.Null);
+            Assert.That(outcome.Warnings, Is.Not.Empty);
+            for (int i = 0; i < CalibrationPalette.Colors.Count; i++)
             {
-                Assert.That(clippedGrays, Does.Contain(actual!.R), $"Clipped gray {expected.Hex} got {actual.Hex}");
-            }
-            else
-            {
-                Assert.That(actual, Is.EqualTo(expected), $"Shot {i} ({expected.Hex}) got {actual!.Hex}");
+                var expected = CalibrationPalette.Colors[i];
+                var actual = outcome.Assignments[i];
+                Assert.That(actual, Is.Not.Null, $"Shot {i} ({expected.Hex}) unassigned: {outcome.Errors[i]}");
+                if (expected.IsNeutral && clippedGrays.Contains(expected.R))
+                {
+                    Assert.That(clippedGrays, Does.Contain(actual!.R), $"Clipped gray {expected.Hex} got {actual.Hex}");
+                }
+                else
+                {
+                    Assert.That(actual, Is.EqualTo(expected), $"Shot {i} ({expected.Hex}) got {actual!.Hex}");
+                }
             }
         }
     }
@@ -118,12 +124,15 @@ public class ColorIdentifierTests
         var outcome = ColorIdentifier.Identify(means, CancellationToken.None);
 
         // Assert
-        Assert.That(outcome.GlobalError, Is.Null);
-        Assert.That(outcome.Assignments[^1], Is.Null);
-        Assert.That(outcome.Errors[^1], Does.Contain("could not be matched"));
-        for (int i = 0; i < CalibrationPalette.Colors.Count; i++)
+        using (Assert.EnterMultipleScope())
         {
-            Assert.That(outcome.Assignments[i], Is.EqualTo(CalibrationPalette.Colors[i]));
+            Assert.That(outcome.GlobalError, Is.Null);
+            Assert.That(outcome.Assignments[^1], Is.Null);
+            Assert.That(outcome.Errors[^1], Does.Contain("could not be matched"));
+            for (int i = 0; i < CalibrationPalette.Colors.Count; i++)
+            {
+                Assert.That(outcome.Assignments[i], Is.EqualTo(CalibrationPalette.Colors[i]));
+            }
         }
     }
 
@@ -139,10 +148,13 @@ public class ColorIdentifierTests
         var outcome = ColorIdentifier.Identify(means, CancellationToken.None);
 
         // Assert: exactly one of the two contenders gets the color, the other errors.
-        Assert.That(outcome.GlobalError, Is.Null);
         int assignedCount = outcome.Assignments.Count(a => a == duplicated);
-        Assert.That(assignedCount, Is.EqualTo(1));
-        Assert.That(outcome.Errors.Count(e => e is not null), Is.EqualTo(1));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(outcome.GlobalError, Is.Null);
+            Assert.That(assignedCount, Is.EqualTo(1));
+            Assert.That(outcome.Errors.Count(e => e is not null), Is.EqualTo(1));
+        }
     }
 
     [Test]

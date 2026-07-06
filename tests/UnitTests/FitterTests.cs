@@ -101,9 +101,12 @@ public class FitterTests
 
         // Assert
         float meanDeltaE = MeanDeltaEAgainstTruth(result.Transform, seed: 7);
-        Assert.That(meanDeltaE, Is.LessThan(0.02f), "Mean dE too high with outliers.");
-        Assert.That(result.Diagnostics.InlierCount, Is.LessThan(result.Diagnostics.TotalCount),
-            "Expected some samples to be down-weighted as outliers.");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(meanDeltaE, Is.LessThan(0.02f), "Mean dE too high with outliers.");
+            Assert.That(result.Diagnostics.InlierCount, Is.LessThan(result.Diagnostics.TotalCount),
+                "Expected some samples to be down-weighted as outliers.");
+        }
     }
 
     [Test]
@@ -119,11 +122,14 @@ public class FitterTests
         var result = new AffineCurvesFitter().Fit(samples, FitOptions.Default, CancellationToken.None);
 
         // Assert
-        foreach (float x in new[] { 0f, 0.25f, 0.5f, 0.75f, 1f })
+        using (Assert.EnterMultipleScope())
         {
-            var output = result.Transform.Apply(new Rgb(x, x, x));
-            Assert.That(float.IsFinite(output.R) && float.IsFinite(output.G) && float.IsFinite(output.B), Is.True);
-            Assert.That(output.R, Is.InRange(-0.5f, 1.5f));
+            foreach (float x in new[] { 0f, 0.25f, 0.5f, 0.75f, 1f })
+            {
+                var output = result.Transform.Apply(new Rgb(x, x, x));
+                Assert.That(float.IsFinite(output.R) && float.IsFinite(output.G) && float.IsFinite(output.B), Is.True);
+                Assert.That(output.R, Is.InRange(-0.5f, 1.5f));
+            }
         }
     }
 

@@ -44,8 +44,11 @@ public class ColorSpaceMatrixCheckTests
     {
         string? warning = ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.Means(SolidCaptures.Mismatch601as709)));
 
-        Assert.That(warning, Is.Not.Null);
-        Assert.That(warning, Does.Contain("'Rec. 601'"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(warning, Is.Not.Null);
+            Assert.That(warning, Does.Contain("'Rec. 601'"));
+        }
     }
 
     [Test]
@@ -53,30 +56,39 @@ public class ColorSpaceMatrixCheckTests
     {
         string? warning = ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.Means(SolidCaptures.Mismatch709as601)));
 
-        Assert.That(warning, Is.Not.Null);
-        Assert.That(warning, Does.Contain("'Rec. 709'"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(warning, Is.Not.Null);
+            Assert.That(warning, Does.Contain("'Rec. 709'"));
+        }
     }
 
     [Test]
     public void Detect_CleanAndStandardDegradations_NoWarning()
     {
         // Gain/gamma/bleed within the validated bounds must never masquerade as a matrix mismatch.
-        Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.Means(c => c))), Is.Null);
-        Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.DegradedMeans(SolidCaptures.Degradation.Moderate))), Is.Null);
-        Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.DegradedMeans(SolidCaptures.Degradation.WorstDark))), Is.Null);
-        Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.DegradedMeans(SolidCaptures.Degradation.WorstBright))), Is.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.Means(c => c))), Is.Null);
+            Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.DegradedMeans(SolidCaptures.Degradation.Moderate))), Is.Null);
+            Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.DegradedMeans(SolidCaptures.Degradation.WorstDark))), Is.Null);
+            Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(SolidCaptures.DegradedMeans(SolidCaptures.Degradation.WorstBright))), Is.Null);
+        }
     }
 
     [Test]
     public void Detect_RandomCleanDegradations_NeverFalsePositive()
     {
         var rng = new Random(12345);
-        for (int t = 0; t < 200; t++)
+        using (Assert.EnterMultipleScope())
         {
-            var deg = RandomDegradation(rng);
-            var means = SolidCaptures.DegradedMeans(deg, seedBase: t * 40);
-            Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(means)), Is.Null,
-                $"False positive at draw {t}: {deg}");
+            for (int t = 0; t < 200; t++)
+            {
+                var deg = RandomDegradation(rng);
+                var means = SolidCaptures.DegradedMeans(deg, seedBase: t * 40);
+                Assert.That(ColorSpaceMatrixCheck.Detect(FitMatrix(means)), Is.Null,
+                    $"False positive at draw {t}: {deg}");
+            }
         }
     }
 
@@ -84,20 +96,23 @@ public class ColorSpaceMatrixCheckTests
     public void Detect_RandomMismatchPlusDegradation_AlwaysDetectsCorrectDirection()
     {
         var rng = new Random(999);
-        for (int t = 0; t < 100; t++)
+        using (Assert.EnterMultipleScope())
         {
-            var deg = RandomDegradation(rng);
-            bool content601 = rng.Next(2) == 0; // 601-encoded content decoded as 709
-            Func<Rgb, Rgb> chain = content601
-                ? c => SolidCaptures.Mismatch601as709(deg.Apply(c))
-                : c => SolidCaptures.Mismatch709as601(deg.Apply(c));
+            for (int t = 0; t < 100; t++)
+            {
+                var deg = RandomDegradation(rng);
+                bool content601 = rng.Next(2) == 0; // 601-encoded content decoded as 709
+                Func<Rgb, Rgb> chain = content601
+                    ? c => SolidCaptures.Mismatch601as709(deg.Apply(c))
+                    : c => SolidCaptures.Mismatch709as601(deg.Apply(c));
 
-            var means = SolidCaptures.Means(chain, seedBase: 5000 + t * 40);
-            string? warning = ColorSpaceMatrixCheck.Detect(FitMatrix(means));
+                var means = SolidCaptures.Means(chain, seedBase: 5000 + t * 40);
+                string? warning = ColorSpaceMatrixCheck.Detect(FitMatrix(means));
 
-            Assert.That(warning, Is.Not.Null, $"Missed mismatch at draw {t}: content601={content601}, {deg}");
-            Assert.That(warning, Does.Contain(content601 ? "'Rec. 601'" : "'Rec. 709'"),
-                $"Wrong direction at draw {t}: content601={content601}");
+                Assert.That(warning, Is.Not.Null, $"Missed mismatch at draw {t}: content601={content601}, {deg}");
+                Assert.That(warning, Does.Contain(content601 ? "'Rec. 601'" : "'Rec. 709'"),
+                    $"Wrong direction at draw {t}: content601={content601}");
+            }
         }
     }
 
@@ -115,9 +130,12 @@ public class ColorSpaceMatrixCheckTests
             new ObsLutWriter(), TestImages.LoadTemplate());
         var result = await pipeline.RunAsync(shots, null, CancellationToken.None);
 
-        Assert.That(result.Success, Is.True, result.Error);
-        Assert.That(result.ColorSpaceWarning, Is.Not.Null);
-        Assert.That(result.ColorSpaceWarning, Does.Contain("'Rec. 601'"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Success, Is.True, result.Error);
+            Assert.That(result.ColorSpaceWarning, Is.Not.Null);
+            Assert.That(result.ColorSpaceWarning, Does.Contain("'Rec. 601'"));
+        }
     }
 
     private static byte[] Png(RawImage image)

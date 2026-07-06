@@ -15,9 +15,12 @@ public class NumericsTests
         double[] x = LinearSolver.Solve(a, b);
 
         // Assert
-        Assert.That(x[0], Is.EqualTo(2.0).Within(1e-10));
-        Assert.That(x[1], Is.EqualTo(3.0).Within(1e-10));
-        Assert.That(x[2], Is.EqualTo(-1.0).Within(1e-10));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(x[0], Is.EqualTo(2.0).Within(1e-10));
+            Assert.That(x[1], Is.EqualTo(3.0).Within(1e-10));
+            Assert.That(x[2], Is.EqualTo(-1.0).Within(1e-10));
+        }
     }
 
     [Test]
@@ -67,9 +70,12 @@ public class NumericsTests
         double[] result = Pava.FitNonDecreasing(values, weights);
 
         // Assert
-        for (int i = 1; i < result.Length; i++)
+        using (Assert.EnterMultipleScope())
         {
-            Assert.That(result[i], Is.GreaterThanOrEqualTo(result[i - 1]));
+            for (int i = 1; i < result.Length; i++)
+            {
+                Assert.That(result[i], Is.GreaterThanOrEqualTo(result[i - 1]));
+            }
         }
     }
 }

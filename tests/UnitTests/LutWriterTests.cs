@@ -13,20 +13,23 @@ public class LutWriterTests
         var template = TestImages.LoadTemplate();
 
         // Assert
-        Assert.That(template.Width, Is.EqualTo(512));
-        Assert.That(template.Height, Is.EqualTo(512));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(template.Width, Is.EqualTo(512));
+            Assert.That(template.Height, Is.EqualTo(512));
 
-        // Corners of the identity mapping round(i * 255 / 63).
-        Assert.That(template.GetPixel(0, 0), Is.EqualTo(((byte)0, (byte)0, (byte)0)));
-        Assert.That(template.GetPixel(63, 0), Is.EqualTo(((byte)255, (byte)0, (byte)0)));
-        Assert.That(template.GetPixel(0, 63), Is.EqualTo(((byte)0, (byte)255, (byte)0)));
-        Assert.That(template.GetPixel(448, 448), Is.EqualTo(((byte)0, (byte)0, (byte)255))); // blue slice 63 tile
-        Assert.That(template.GetPixel(511, 511), Is.EqualTo(((byte)255, (byte)255, (byte)255)));
+            // Corners of the identity mapping round(i * 255 / 63).
+            Assert.That(template.GetPixel(0, 0), Is.EqualTo(((byte)0, (byte)0, (byte)0)));
+            Assert.That(template.GetPixel(63, 0), Is.EqualTo(((byte)255, (byte)0, (byte)0)));
+            Assert.That(template.GetPixel(0, 63), Is.EqualTo(((byte)0, (byte)255, (byte)0)));
+            Assert.That(template.GetPixel(448, 448), Is.EqualTo(((byte)0, (byte)0, (byte)255))); // blue slice 63 tile
+            Assert.That(template.GetPixel(511, 511), Is.EqualTo(((byte)255, (byte)255, (byte)255)));
 
-        // Ramp values prove the mapping is round(i * 255 / 63), not i * 4.
-        Assert.That(template.GetPixel(1, 0), Is.EqualTo(((byte)4, (byte)0, (byte)0)));
-        Assert.That(template.GetPixel(32, 0), Is.EqualTo(((byte)130, (byte)0, (byte)0)));
-        Assert.That(template.GetPixel(62, 0), Is.EqualTo(((byte)251, (byte)0, (byte)0)));
+            // Ramp values prove the mapping is round(i * 255 / 63), not i * 4.
+            Assert.That(template.GetPixel(1, 0), Is.EqualTo(((byte)4, (byte)0, (byte)0)));
+            Assert.That(template.GetPixel(32, 0), Is.EqualTo(((byte)130, (byte)0, (byte)0)));
+            Assert.That(template.GetPixel(62, 0), Is.EqualTo(((byte)251, (byte)0, (byte)0)));
+        }
     }
 
     [Test]
@@ -54,15 +57,18 @@ public class LutWriterTests
         // Act
         var baked = new ObsLutWriter().Bake(lut, template);
 
-        // Assert: lattice point (r=63, g=0, b=0) -> swapped -> (0, 0, 255) at pixel (63, 0).
-        Assert.That(baked.GetPixel(63, 0), Is.EqualTo(((byte)0, (byte)0, (byte)255)));
-        // Lattice point (r=0, g=0, b=63) -> swapped -> (255, 0, 0) at tile 63 origin (448, 448).
-        Assert.That(baked.GetPixel(448, 448), Is.EqualTo(((byte)255, (byte)0, (byte)0)));
-        // Lattice point (r=10, g=20, b=30): tile (30%8, 30/8) origin (384, 192) -> pixel (394, 212).
         byte ramp10 = (byte)MathF.Round(10 * 255f / 63f);
         byte ramp20 = (byte)MathF.Round(20 * 255f / 63f);
         byte ramp30 = (byte)MathF.Round(30 * 255f / 63f);
-        Assert.That(baked.GetPixel(384 + 10, 192 + 20), Is.EqualTo((ramp30, ramp20, ramp10)));
+        using (Assert.EnterMultipleScope())
+        {
+            // Lattice point (r=63, g=0, b=0) -> swapped -> (0, 0, 255) at pixel (63, 0).
+            Assert.That(baked.GetPixel(63, 0), Is.EqualTo(((byte)0, (byte)0, (byte)255)));
+            // Lattice point (r=0, g=0, b=63) -> swapped -> (255, 0, 0) at tile 63 origin (448, 448).
+            Assert.That(baked.GetPixel(448, 448), Is.EqualTo(((byte)255, (byte)0, (byte)0)));
+            // Lattice point (r=10, g=20, b=30): tile (30%8, 30/8) origin (384, 192) -> pixel (394, 212).
+            Assert.That(baked.GetPixel(384 + 10, 192 + 20), Is.EqualTo((ramp30, ramp20, ramp10)));
+        }
     }
 
     [Test]
