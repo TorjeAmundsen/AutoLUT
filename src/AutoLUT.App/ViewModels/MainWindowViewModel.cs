@@ -193,6 +193,13 @@ public partial class MainWindowViewModel : ObservableObject
             await _dialogs.ShowWarningAsync("Color space mismatch detected", colorSpaceWarning);
         }
 
+        // Crushed shadows lose detail the LUT cannot bring back, so the user should know even
+        // though there is no setting to fix - the loss is permanent in the capture chain.
+        if (result.CrushWarning is { } crushWarning)
+        {
+            await _dialogs.ShowWarningAsync("Crushed shadows detected", crushWarning);
+        }
+
         string warningSuffix = result.Warnings.Count > 0 ? $" Warning: {string.Join(" ", result.Warnings)}" : "";
         if (!result.Success)
         {

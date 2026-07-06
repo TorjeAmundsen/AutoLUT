@@ -41,6 +41,8 @@ public class PipelineTests
         Assert.That(result.Error, Is.Null);
         Assert.That(result.Success, Is.True);
         Assert.That(result.Screenshots.All(s => s.IsValid), Is.True);
+        Assert.That(result.CrushWarning, Is.Null,
+            "Gamma degradation must not trigger the crushed-shadows warning.");
 
         // Applying the LUT to each degraded capture must bring its color back to the commanded value.
         var applier = new ObsLutApplier(result.LutImage!);
@@ -115,6 +117,7 @@ public class PipelineTests
 
         // Assert
         Assert.That(result.Success, Is.True, result.Error);
+        Assert.That(result.CrushWarning, Does.Contain("darkest"));
         foreach (var shot in result.Screenshots.Where(s => s.Target is { IsNeutral: true, R: 0 or 32 }))
         {
             Assert.That(shot.IsOutlier, Is.False, $"{shot.Name} must stay an inlier.");
@@ -126,6 +129,41 @@ public class PipelineTests
         Assert.That(corrected.R, Is.LessThan(3f / 255f), "Corrected black R still lifted.");
         Assert.That(corrected.G, Is.LessThan(3f / 255f), "Corrected black G still lifted.");
         Assert.That(corrected.B, Is.LessThan(3f / 255f), "Corrected black B still lifted.");
+    }
+
+    [Test]
+    public async Task EndToEnd_DeeplyCrushedDarks_RecoversGray32AndKeepsItInlier()
+    {
+        // Arrange: deeper crush leaves gray32 barely above the clamp (~16/255 observed). The
+        // gray32 anchor must keep it alive through the robust loop so the toe recovers it to ~32
+        // instead of rejecting it and correcting it to ~15.
+        var shots = CalibrationPalette.Colors
+            .Select((c, i) => new ScreenshotInput($"{c.Hex}.png",
+                Png(SolidCaptures.CaptureColor(SolidCaptures.CrushDarksDeep(c.ToRgb()), 2, 1400 + i))))
+            .ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.Success, Is.True, result.Error);
+        foreach (var shot in result.Screenshots.Where(s => s.Target is { IsNeutral: true, R: 0 or 32 }))
+        {
+            Assert.That(shot.IsOutlier, Is.False, $"{shot.Name} must stay an inlier.");
+        }
+
+        var applier = new ObsLutApplier(result.LutImage!);
+        var black = SolidCaptures.CaptureColor(SolidCaptures.CrushDarksDeep(new Rgb(0f, 0f, 0f)), 2, 1500);
+        var correctedBlack = SolidColorAnalyzer.Analyze(applier.Apply(black)).Mean;
+        Assert.That(correctedBlack.R, Is.LessThan(3f / 255f), "Corrected black R still lifted.");
+        Assert.That(correctedBlack.G, Is.LessThan(3f / 255f), "Corrected black G still lifted.");
+        Assert.That(correctedBlack.B, Is.LessThan(3f / 255f), "Corrected black B still lifted.");
+
+        var gray32 = SolidCaptures.CaptureColor(SolidCaptures.CrushDarksDeep(new Rgb(32f / 255f, 32f / 255f, 32f / 255f)), 2, 1600);
+        var correctedGray32 = SolidColorAnalyzer.Analyze(applier.Apply(gray32)).Mean;
+        Assert.That(correctedGray32.R, Is.EqualTo(32f / 255f).Within(3f / 255f), "Corrected gray32 R off target.");
+        Assert.That(correctedGray32.G, Is.EqualTo(32f / 255f).Within(3f / 255f), "Corrected gray32 G off target.");
+        Assert.That(correctedGray32.B, Is.EqualTo(32f / 255f).Within(3f / 255f), "Corrected gray32 B off target.");
     }
 
     [Test]

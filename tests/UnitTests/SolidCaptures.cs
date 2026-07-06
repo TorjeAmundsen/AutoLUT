@@ -67,6 +67,14 @@ internal static class SolidCaptures
         Math.Clamp(1.017f * c.G - 7.5f / 255f, 0f, 1f),
         Math.Clamp(1.016f * c.B - 8.5f / 255f, 0f, 1f));
 
+    /// <summary>Deeper crush from a second real capture device: sub-unity gain with black offsets
+    /// near -14/255, leaving gray32 barely above the clamp. Stresses the gray32 anchor - without
+    /// it the robust loop rejects gray32 before the curve learns the toe.</summary>
+    public static Rgb CrushDarksDeep(Rgb c) => new(
+        Math.Clamp(0.978f * c.R - 11.7f / 255f, 0f, 1f),
+        Math.Clamp(0.949f * c.G - 14.5f / 255f, 0f, 1f),
+        Math.Clamp(0.958f * c.B - 13.6f / 255f, 0f, 1f));
+
     /// <summary>
     /// Rec.601-encoded content decoded as Rec.709 (N_A = Decode709 * Encode601), on gamma-encoded RGB.
     /// Rows sum to 1, so grays are untouched and only chromatic colors rotate; saturated colors clip.
