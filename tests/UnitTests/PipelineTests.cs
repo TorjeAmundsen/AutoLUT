@@ -100,6 +100,35 @@ public class PipelineTests
     }
 
     [Test]
+    public async Task EndToEnd_CrushedDarks_MapsBlackToZeroAndKeepsDarkGraysInliers()
+    {
+        // Arrange: shadows clipped at the sensor (negative black offset, clamped at 0). The
+        // crush path must anchor black so the LUT maps captured black to (0,0,0) instead of a
+        // slight gray, and the darkest grays must not be rejected as outliers.
+        var shots = CalibrationPalette.Colors
+            .Select((c, i) => new ScreenshotInput($"{c.Hex}.png",
+                Png(SolidCaptures.CaptureColor(SolidCaptures.CrushDarks(c.ToRgb()), 2, 1100 + i))))
+            .ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        Assert.That(result.Success, Is.True, result.Error);
+        foreach (var shot in result.Screenshots.Where(s => s.Target is { IsNeutral: true, R: 0 or 32 }))
+        {
+            Assert.That(shot.IsOutlier, Is.False, $"{shot.Name} must stay an inlier.");
+        }
+
+        var applier = new ObsLutApplier(result.LutImage!);
+        var capture = SolidCaptures.CaptureColor(SolidCaptures.CrushDarks(new Rgb(0f, 0f, 0f)), 2, 1300);
+        var corrected = SolidColorAnalyzer.Analyze(applier.Apply(capture)).Mean;
+        Assert.That(corrected.R, Is.LessThan(3f / 255f), "Corrected black R still lifted.");
+        Assert.That(corrected.G, Is.LessThan(3f / 255f), "Corrected black G still lifted.");
+        Assert.That(corrected.B, Is.LessThan(3f / 255f), "Corrected black B still lifted.");
+    }
+
+    [Test]
     public async Task Run_FlagsInconsistentCaptureAsOutlier()
     {
         // Arrange: one capture is identifiable but its color disagrees with the transform that

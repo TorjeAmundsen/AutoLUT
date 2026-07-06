@@ -21,6 +21,15 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
     private const float NoiseScale = 4f / 255f;
 
+    // Crushed-shadow captures (BlackCrushCheck) get a finer curve plus a hard black anchor so the
+    // toe bends captured black back to (0, 0, 0) instead of trading it against the clean upper
+    // ramp. Values validated against real crushed captures and the degradation-bounds simulation:
+    // black lands within 1/255 of 0, gray32 within ~2/255, all samples under the outlier cutoff.
+    // Gated because unconditional anchoring costs ~2-3/255 shadow accuracy on gamma-curved feeds.
+    private const int CrushCurveKnots = 21;
+    private const double CrushCurveSmoothness = 0.003;
+    private const double BlackAnchorWeight = 20.0;
+
     private readonly IImageCodec _codec;
     private readonly IColorTransformFitter _fitter;
     private readonly ILutGenerator _lutGenerator;
@@ -154,6 +163,11 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         Rgb MeanOf(byte gray) => means[Array.IndexOf(targets, CalibrationPalette.Neutrals.First(c => c.R == gray))]!.Value;
         string? rangeWarning = ColorRangeCheck.Detect(MeanOf(0), MeanOf(255), MeanOf(32), MeanOf(224));
 
+        bool darksCrushed = BlackCrushCheck.Detect(MeanOf);
+        var fitOptions = darksCrushed
+            ? _fitOptions with { CurveKnots = CrushCurveKnots, CurveSmoothness = CrushCurveSmoothness }
+            : _fitOptions;
+
         var correspondences = new List<ColorCorrespondence>(identified);
         var correspondenceShotIndex = new List<int>(identified);
         for (int i = 0; i < n; i++)
@@ -164,7 +178,13 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
             }
 
             double noise = stdDevs[i] / NoiseScale;
-            correspondences.Add(new ColorCorrespondence(mean, target.ToRgb(), 1.0 / (1.0 + noise * noise), stdDevs[i] * stdDevs[i]));
+            double weight = 1.0 / (1.0 + noise * noise);
+            if (darksCrushed && target is { R: 0, G: 0, B: 0 })
+            {
+                weight *= BlackAnchorWeight;
+            }
+
+            correspondences.Add(new ColorCorrespondence(mean, target.ToRgb(), weight, stdDevs[i] * stdDevs[i]));
             correspondenceShotIndex.Add(i);
         }
 
@@ -172,7 +192,7 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         FitResult fit;
         try
         {
-            fit = _fitter.Fit(correspondences, _fitOptions, ct);
+            fit = _fitter.Fit(correspondences, fitOptions, ct);
         }
         catch (OperationCanceledException)
         {

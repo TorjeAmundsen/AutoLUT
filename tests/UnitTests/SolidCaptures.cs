@@ -59,6 +59,14 @@ internal static class SolidCaptures
         Math.Clamp((c.G * 255f - 16f) * 255f / 219f, 0f, 255f) / 255f,
         Math.Clamp((c.B * 255f - 16f) * 255f / 219f, 0f, 255f) / 255f);
 
+    /// <summary>Slightly crushed shadows (matches a real capture device): near-unity gain with a
+    /// small NEGATIVE per-channel black offset, clamped at 0. The bottom few code values clip to
+    /// black while the rest of the ramp stays linear - the signature BlackCrushCheck detects.</summary>
+    public static Rgb CrushDarks(Rgb c) => new(
+        Math.Clamp(1.016f * c.R - 13f / 255f, 0f, 1f),
+        Math.Clamp(1.017f * c.G - 7.5f / 255f, 0f, 1f),
+        Math.Clamp(1.016f * c.B - 8.5f / 255f, 0f, 1f));
+
     /// <summary>
     /// Rec.601-encoded content decoded as Rec.709 (N_A = Decode709 * Encode601), on gamma-encoded RGB.
     /// Rows sum to 1, so grays are untouched and only chromatic colors rotate; saturated colors clip.
