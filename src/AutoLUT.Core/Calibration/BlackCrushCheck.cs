@@ -24,9 +24,11 @@ public static class BlackCrushCheck
     /// <summary>How close gray32 must sit to the trend line to count as clipped rather than gamma.</summary>
     private const float Gray32Tolerance = 3f / 255f;
 
-    /// <summary>True if any channel shows clipped shadows. <paramref name="grayMean"/> maps a
-    /// commanded neutral level to its captured center-region mean.</summary>
-    public static bool Detect(Func<byte, Rgb> grayMean)
+    /// <summary>If any channel shows clipped shadows, returns the estimated crush depth - how
+    /// many of the darkest input levels (out of 255) clip to black on the worst channel
+    /// (-intercept / slope); otherwise null. <paramref name="grayMean"/> maps a commanded
+    /// neutral level to its captured center-region mean.</summary>
+    public static float? Detect(Func<byte, Rgb> grayMean)
     {
         Span<Rgb> means = stackalloc Rgb[TrendLevels.Length];
         for (int k = 0; k < TrendLevels.Length; k++)
@@ -36,6 +38,7 @@ public static class BlackCrushCheck
 
         var gray32 = grayMean(32);
 
+        float? worstDepth = null;
         for (int channel = 0; channel < 3; channel++)
         {
             // Least-squares line obs = slope * (level/255) + intercept over the trend levels.
@@ -53,7 +56,7 @@ public static class BlackCrushCheck
 
             float slope = (n * sxy - sx * sy) / (n * sxx - sx * sx);
             float intercept = (sy - slope * sx) / n;
-            if (intercept >= InterceptThreshold)
+            if (slope <= 0 || intercept >= InterceptThreshold)
             {
                 continue;
             }
@@ -61,11 +64,12 @@ public static class BlackCrushCheck
             float predicted32 = slope * (32f / 255f) + intercept;
             if (Math.Abs(Channel(gray32, channel) - predicted32) < Gray32Tolerance)
             {
-                return true;
+                float depth = -intercept / slope * 255f;
+                worstDepth = Math.Max(worstDepth ?? 0f, depth);
             }
         }
 
-        return false;
+        return worstDepth;
     }
 
     private static float Channel(Rgb c, int channel) => channel switch

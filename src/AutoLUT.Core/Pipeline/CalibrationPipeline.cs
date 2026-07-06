@@ -21,14 +21,18 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
     private const float NoiseScale = 4f / 255f;
 
-    // Crushed-shadow captures (BlackCrushCheck) get a finer curve plus a hard black anchor so the
-    // toe bends captured black back to (0, 0, 0) instead of trading it against the clean upper
-    // ramp. Values validated against real crushed captures and the degradation-bounds simulation:
-    // black lands within 1/255 of 0, gray32 within ~2/255, all samples under the outlier cutoff.
-    // Gated because unconditional anchoring costs ~2-3/255 shadow accuracy on gamma-curved feeds.
+    // Crushed-shadow captures (BlackCrushCheck) get a finer curve plus hard anchors on the two
+    // darkest neutrals, which carry the entire toe shape: black pins the clamp to (0, 0, 0) and
+    // gray32 pins the first unclipped step. The gray32 anchor matters on deeper crushes - without
+    // it the initial toe misfit gets gray32 rejected by the robust loop before the curve learns
+    // the toe, and once rejected the fit never recovers it. Values validated against two real
+    // crushed feeds and the degradation-bounds simulation: black lands within ~1/255 of 0, gray32
+    // within ~1/255 of 32, all samples under the outlier cutoff. Gated because unconditional
+    // anchoring costs ~2-3/255 shadow accuracy on gamma-curved feeds.
     private const int CrushCurveKnots = 21;
     private const double CrushCurveSmoothness = 0.003;
     private const double BlackAnchorWeight = 20.0;
+    private const double Gray32AnchorWeight = 10.0;
 
     private readonly IImageCodec _codec;
     private readonly IColorTransformFitter _fitter;
@@ -163,7 +167,15 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         Rgb MeanOf(byte gray) => means[Array.IndexOf(targets, CalibrationPalette.Neutrals.First(c => c.R == gray))]!.Value;
         string? rangeWarning = ColorRangeCheck.Detect(MeanOf(0), MeanOf(255), MeanOf(32), MeanOf(224));
 
-        bool darksCrushed = BlackCrushCheck.Detect(MeanOf);
+        float? crushDepth = BlackCrushCheck.Detect(MeanOf);
+        bool darksCrushed = crushDepth is not null;
+        string? crushWarning = crushDepth is { } depth
+            ? $"Something in the capture chain (capture device, splitter, cabling, ...) clips "
+                + $"roughly the darkest {Math.Round(depth)} of 255 levels to black, so some detail "
+                + "in very dark areas is lost and cannot be recovered by the LUT. Calibration "
+                + "compensates for the rest of the range."
+            : null;
+
         var fitOptions = darksCrushed
             ? _fitOptions with { CurveKnots = CrushCurveKnots, CurveSmoothness = CrushCurveSmoothness }
             : _fitOptions;
@@ -179,9 +191,13 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
             double noise = stdDevs[i] / NoiseScale;
             double weight = 1.0 / (1.0 + noise * noise);
-            if (darksCrushed && target is { R: 0, G: 0, B: 0 })
+            if (darksCrushed && target is { IsNeutral: true, R: 0 })
             {
                 weight *= BlackAnchorWeight;
+            }
+            else if (darksCrushed && target is { IsNeutral: true, R: 32 })
+            {
+                weight *= Gray32AnchorWeight;
             }
 
             correspondences.Add(new ColorCorrespondence(mean, target.ToRgb(), weight, stdDevs[i] * stdDevs[i]));
@@ -222,7 +238,7 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
         progress?.Report(new PipelineProgress(PipelineStage.Finished, "Finished"));
         var screenshotsOut = BuildScreenshots(names, errors, targets, means, outliers);
-        return new CalibrationResult(screenshotsOut, null, warnings, rangeWarning, lutImage, fit.Diagnostics, colorSpaceWarning);
+        return new CalibrationResult(screenshotsOut, null, warnings, rangeWarning, lutImage, fit.Diagnostics, colorSpaceWarning, crushWarning);
     }
 
     private static CalibrationResult BuildResult(
