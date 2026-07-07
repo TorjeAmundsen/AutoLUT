@@ -1,22 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>AutoLUT - OoT Capture Color Calibration</title>
+        <link rel="icon" href="./favicon.png" type="image/png" />
+        <link rel="stylesheet" href="./app.css" />
+    </head>
 
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AutoLUT - OoT Capture Color Calibration</title>
-  <link rel="icon" href="./favicon.png" type="image/png" />
-  <link rel="stylesheet" href="./app.css" />
-</head>
-
-<body style="margin: 0; overflow: hidden">
-  <div id="out">
-    <div id="splash">
-      <p>Loading AutoLUT...</p>
-      <p class="hint">First load downloads ~10 MB; it is cached afterwards.</p>
-    </div>
-  </div>
-  <script type="module" src="./main.js"></script>
-</body>
-
+    <body style="margin: 0; overflow: hidden">
+        <div id="out">
+            <div id="splash">
+                <p id="splash-label">Loading AutoLUT...</p>
+                <div id="splash-bar"><div id="splash-bar-fill"></div></div>
+                <p class="hint">First load downloads ~12 MB; it is cached afterwards.</p>
+            </div>
+        </div>
+        <script type="module" src="./main.js"></script>
+    </body>
 </html>

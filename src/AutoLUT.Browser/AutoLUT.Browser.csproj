@@ -9,6 +9,9 @@
     <CompressionEnabled>false</CompressionEnabled>
     <!-- AutoLUT.App is a desktop exe but is consumed here purely as a library (NETSDK1150). -->
     <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+    <!-- Publish-only: interpreter mode is 10-50x slower for the pixel-crunching paths. -->
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <WasmStripILAfterAOT>true</WasmStripILAfterAOT>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,8 +1,9 @@
-html, body {
+html,
+body {
     margin: 0;
     padding: 0;
     height: 100%;
-    background: #2C2C2C;
+    background: #2c2c2c;
 }
 
 #out {
@@ -16,11 +17,27 @@ html, body {
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #CCCCCC;
+    color: #cccccc;
     font-family: system-ui, sans-serif;
 }
 
 #splash .hint {
     color: #888888;
     font-size: 0.85em;
+}
+
+#splash-bar {
+    width: 260px;
+    height: 6px;
+    border-radius: 3px;
+    background: #444444;
+    overflow: hidden;
+}
+
+#splash-bar-fill {
+    width: 0;
+    height: 100%;
+    border-radius: 3px;
+    background: #cccccc;
+    transition: width 0.2s ease-out;
 }
