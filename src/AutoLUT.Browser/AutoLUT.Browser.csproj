@@ -25,4 +25,17 @@
     <ProjectReference Include="../AutoLUT.App/AutoLUT.App.csproj" />
   </ItemGroup>
 
+  <!-- Expose $(Version) to the static loading screen: generate version.js into obj and register
+       it as a static web asset, so index.html can show the semver before the runtime loads. -->
+  <Target Name="GenerateVersionJs" BeforeTargets="AssignTargetPaths">
+    <WriteLinesToFile
+        File="$(IntermediateOutputPath)version.js"
+        Lines="globalThis.autolutVersion = &quot;$(Version)&quot;%3B"
+        Overwrite="true"
+        WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Content Include="$(IntermediateOutputPath)version.js" TargetPath="wwwroot\version.js" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+
 </Project>

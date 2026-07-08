@@ -14,8 +14,15 @@
                 <p id="splash-label">Loading AutoLUT...</p>
                 <div id="splash-bar"><div id="splash-bar-fill"></div></div>
                 <p class="hint">First load downloads ~12 MB; it is cached afterwards.</p>
+                <p id="splash-version" class="hint"></p>
             </div>
         </div>
+        <script src="./version.js"></script>
+        <script>
+            if (globalThis.autolutVersion) {
+                document.getElementById("splash-version").textContent = `v${globalThis.autolutVersion}`;
+            }
+        </script>
         <script type="module" src="./main.js"></script>
     </body>
 </html>

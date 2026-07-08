@@ -323,15 +323,16 @@ public class PipelineTests
     {
         // Arrange
         var shots = PaletteShots(SolidCaptures.Degradation.Moderate, seedBase: 700);
-        var stages = new List<PipelineStage>();
+        var reports = new List<PipelineProgress>();
         var progress = Substitute.For<IProgress<PipelineProgress>>();
         progress.When(p => p.Report(Arg.Any<PipelineProgress>()))
-            .Do(call => stages.Add(call.Arg<PipelineProgress>().Stage));
+            .Do(call => reports.Add(call.Arg<PipelineProgress>()));
 
         // Act
         var result = await MakePipeline().RunAsync(shots, progress, CancellationToken.None);
 
         // Assert
+        var stages = reports.Select(r => r.Stage).ToList();
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Success, Is.True);
@@ -340,6 +341,86 @@ public class PipelineTests
             Assert.That(stages, Does.Contain(PipelineStage.Fitting));
             Assert.That(stages, Does.Contain(PipelineStage.GeneratingLut));
             Assert.That(stages.Last(), Is.EqualTo(PipelineStage.Finished));
+        }
+    }
+
+    [Test]
+    public async Task Run_RangeMismatch_SuppressesRedundantCrushWarning()
+    {
+        // Arrange: full-range content expanded as limited clips the darks, so BlackCrushCheck
+        // fires too - but the range warning already explains the clipping and a second modal
+        // would just restate it.
+        var shots = CalibrationPalette.Colors
+            .Select((c, i) => new ScreenshotInput($"{c.Hex}.png",
+                Png(SolidCaptures.CaptureColor(SolidCaptures.Crunch(c.ToRgb()), 2, 1900 + i))))
+            .ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Success, Is.True, result.Error);
+            Assert.That(result.ColorRangeWarning, Does.Contain("crushed"));
+            Assert.That(result.ColorRangeWarning, Does.Contain("detail is lost"));
+            Assert.That(result.Corrections, Has.Some.Contains("Shadow crush"),
+                "Crush detection must still fire so the fit compensates - only the warning is suppressed.");
+            Assert.That(result.CrushWarning, Is.Null,
+                "Range mismatch already explains the clipping; no second crush warning.");
+        }
+    }
+
+    [Test]
+    public async Task Run_CrushedDarks_ReportsShadowCrushCorrection()
+    {
+        // Arrange
+        var shots = CalibrationPalette.Colors
+            .Select((c, i) => new ScreenshotInput($"{c.Hex}.png",
+                Png(SolidCaptures.CaptureColor(SolidCaptures.CrushDarks(c.ToRgb()), 2, 1700 + i))))
+            .ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Success, Is.True, result.Error);
+            Assert.That(result.Corrections, Has.Some.Contains("Shadow crush"));
+        }
+    }
+
+    [Test]
+    public async Task Run_PopulatesPerShotDeltaE()
+    {
+        // Arrange: valid captures plus one non-solid gradient that cannot enter the fit.
+        var shots = PaletteShots(SolidCaptures.Degradation.Moderate, seedBase: 800);
+        var gradient = SolidCaptures.Solid(320, 240, 0, 0, 0);
+        for (int y = 0; y < gradient.Height; y++)
+        {
+            var row = gradient.Row(y);
+            for (int x = 0; x < gradient.Width; x++)
+            {
+                row[x * 3] = (byte)(255 * x / gradient.Width);
+            }
+        }
+
+        shots.Add(new ScreenshotInput("gradient.png", Png(gradient)));
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Success, Is.True, result.Error);
+            foreach (var shot in result.Screenshots.Where(s => s.IsValid))
+            {
+                Assert.That(shot.DeltaE, Is.Not.Null, $"{shot.Name} entered the fit and must carry a dE.");
+            }
+
+            Assert.That(result.Screenshots[^1].DeltaE, Is.Null, "Invalid captures carry no dE.");
         }
     }
 }

@@ -39,8 +39,10 @@ public static class ColorRangeCheck
         if (blackAvg <= 4f && topGap > 12f && topGap <= 20f && bottomGap <= 22f)
         {
             return "Blacks and highlights look crushed - the capture device likely outputs full range "
-                + "(0-255) while OBS treats it as limited. In the capture source's Properties, set "
-                + "Color Range to 'Full', then re-capture all colors.";
+                + "(0-255) while OBS treats it as limited. The limited-range expansion clips the darkest "
+                + "levels to black and compresses the highlights, so shadow and highlight detail is lost "
+                + "before AutoLUT ever sees it - a LUT cannot bring it back. In the capture source's "
+                + "Properties, set Color Range to 'Full', then re-capture all colors.";
         }
 
         return null;

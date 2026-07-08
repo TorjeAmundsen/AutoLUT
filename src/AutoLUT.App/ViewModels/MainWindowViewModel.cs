@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
+using System.IO.Compression;
 using AutoLUT.App.Services;
 using AutoLUT.App.Services.Update;
 using AutoLUT.Core.Imaging;
 using AutoLUT.Core.Lut;
 using AutoLUT.Core.Pipeline;
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -64,6 +66,95 @@ public partial class MainWindowViewModel : ObservableObject
 
     [RelayCommand]
     private void CloseHelp() => IsHelpOpen = false;
+
+    [ObservableProperty]
+    private CalibrationDetailsViewModel? _lastDetails;
+
+    [ObservableProperty]
+    private bool _isDetailsOpen;
+
+    [ObservableProperty]
+    private string? _detailsFeedback;
+
+    [RelayCommand]
+    private void OpenDetails()
+    {
+        DetailsFeedback = null;
+        IsDetailsOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseDetails() => IsDetailsOpen = false;
+
+    [RelayCommand]
+    private async Task CopyDetailsAsync()
+    {
+        if (LastDetails is null)
+        {
+            return;
+        }
+
+        var clipboard = _topLevel()?.Clipboard;
+        if (clipboard is null)
+        {
+            DetailsFeedback = "Clipboard is not available.";
+            return;
+        }
+
+        await clipboard.SetTextAsync(LastDetails.BuildReportText());
+        DetailsFeedback = "Copied to clipboard.";
+    }
+
+    [RelayCommand]
+    private async Task SaveDetailsZipAsync()
+    {
+        if (LastDetails is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var stream = await _files.CreateSaveZipAsync("autolut-debug.zip");
+            if (stream is null)
+            {
+                return;
+            }
+
+            await using (stream)
+            {
+                // Build the archive in memory first: browser save streams are not seekable,
+                // which ZipArchive needs when writing directly.
+                using var memory = new MemoryStream();
+                using (var zip = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
+                {
+                    var detailsEntry = zip.CreateEntry("details.txt");
+                    await using (var writer = new StreamWriter(detailsEntry.Open()))
+                    {
+                        await writer.WriteAsync(LastDetails.BuildReportText());
+                    }
+
+                    var inputs = LastDetails.Inputs;
+                    for (int i = 0; i < inputs.Count; i++)
+                    {
+                        // Index prefix keeps entries unique even if two loaded files share a name.
+                        var entry = zip.CreateEntry($"screenshots/{i + 1:D2}_{inputs[i].Name}");
+                        await using var entryStream = entry.Open();
+                        await entryStream.WriteAsync(inputs[i].Data);
+                    }
+                }
+
+                memory.Position = 0;
+                await memory.CopyToAsync(stream);
+            }
+
+            DetailsFeedback = "Debug zip saved.";
+        }
+        catch (Exception ex)
+        {
+            DetailsFeedback = $"Save failed: {ex.Message}";
+        }
+    }
 
     public MainWindowViewModel(ICalibrationPipeline pipeline, IImageCodec codec, IFilePickerService files, IDialogService dialogs, Func<TopLevel?> topLevel)
     {
@@ -127,6 +218,8 @@ public partial class MainWindowViewModel : ObservableObject
         ShowCorrected = false;
         PreviewImage = null;
         StatusText = "Capture the 39 gz calibration colors, then add the screenshots here.";
+        LastDetails = null;
+        IsDetailsOpen = false;
         GenerateCommand.NotifyCanExecuteChanged();
         ResetCommand.NotifyCanExecuteChanged();
     }
@@ -149,6 +242,9 @@ public partial class MainWindowViewModel : ObservableObject
         var items = Screenshots.ToList();
         var progress = new Progress<PipelineProgress>(p => StatusText = p.Message);
 
+        LastDetails = null;
+        IsDetailsOpen = false;
+
         CalibrationResult result;
         try
         {
@@ -159,6 +255,8 @@ public partial class MainWindowViewModel : ObservableObject
             StatusText = $"Calibration failed: {ex.Message}";
             return;
         }
+
+        LastDetails = CalibrationDetailsViewModel.From(result, inputs);
 
         for (int i = 0; i < items.Count && i < result.Screenshots.Count; i++)
         {

@@ -169,7 +169,10 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
         float? crushDepth = BlackCrushCheck.Detect(MeanOf);
         bool darksCrushed = crushDepth is not null;
-        string? crushWarning = crushDepth is { } depth
+        // A range mismatch is itself what crushes the darks, so its warning already explains the
+        // clipping - a second crushed-shadows warning would just restate it. The crush fit
+        // compensation below still applies either way.
+        string? crushWarning = crushDepth is { } depth && rangeWarning is null
             ? $"Something in the capture chain (capture device, splitter, cabling, ...) clips "
                 + $"roughly the darkest {Math.Round(depth)} of 255 levels to black, so some detail "
                 + "in very dark areas is lost and cannot be recovered by the LUT. Calibration "
@@ -179,6 +182,15 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         var fitOptions = darksCrushed
             ? _fitOptions with { CurveKnots = CrushCurveKnots, CurveSmoothness = CrushCurveSmoothness }
             : _fitOptions;
+
+        var corrections = new List<string>();
+        if (darksCrushed)
+        {
+            corrections.Add(
+                $"Shadow crush compensation: fitting a finer {CrushCurveKnots}-knot tone curve and anchoring "
+                + $"black ({BlackAnchorWeight}x weight) and gray 32 ({Gray32AnchorWeight}x) so the curve toe "
+                + "follows the clipped shadows.");
+        }
 
         var correspondences = new List<ColorCorrespondence>(identified);
         var correspondenceShotIndex = new List<int>(identified);
@@ -231,14 +243,26 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         var lutImage = _lutWriter.Bake(lut, _lutTemplate);
 
         var outliers = new bool[n];
+        var deltaEs = new float?[n];
         for (int k = 0; k < correspondenceShotIndex.Count; k++)
         {
             outliers[correspondenceShotIndex[k]] = !fit.Diagnostics.Inliers[k];
+            deltaEs[correspondenceShotIndex[k]] = fit.Diagnostics.Residuals[k];
+        }
+
+        var outlierNames = Enumerable.Range(0, n).Where(i => outliers[i]).Select(i => names[i]).ToList();
+        if (outlierNames.Count > 0)
+        {
+            corrections.Add(
+                $"Excluded {outlierNames.Count} capture(s) from the fit as outliers (observed color too far "
+                + $"from the fitted model): {string.Join(", ", outlierNames)}.");
         }
 
         progress?.Report(new PipelineProgress(PipelineStage.Finished, "Finished"));
-        var screenshotsOut = BuildScreenshots(names, errors, targets, means, outliers);
-        return new CalibrationResult(screenshotsOut, null, warnings, rangeWarning, lutImage, fit.Diagnostics, colorSpaceWarning, crushWarning);
+        var screenshotsOut = BuildScreenshots(names, errors, targets, means, outliers, deltaEs);
+        return new CalibrationResult(
+            screenshotsOut, null, warnings, rangeWarning, lutImage, fit.Diagnostics,
+            colorSpaceWarning, crushWarning, corrections);
     }
 
     private static CalibrationResult BuildResult(
@@ -247,12 +271,13 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         new(BuildScreenshots(names, errors, targets, means, null), globalError, warnings, rangeWarning, null, null);
 
     private static ScreenshotResult[] BuildScreenshots(
-        string[] names, string?[] errors, PaletteColor?[] targets, Rgb?[] means, bool[]? outliers)
+        string[] names, string?[] errors, PaletteColor?[] targets, Rgb?[] means, bool[]? outliers,
+        float?[]? deltaEs = null)
     {
         var results = new ScreenshotResult[names.Length];
         for (int i = 0; i < names.Length; i++)
         {
-            results[i] = new ScreenshotResult(names[i], errors[i], targets[i], means[i], outliers?[i] ?? false);
+            results[i] = new ScreenshotResult(names[i], errors[i], targets[i], means[i], outliers?[i] ?? false, deltaEs?[i]);
         }
 
         return results;
