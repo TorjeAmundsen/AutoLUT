@@ -84,6 +84,11 @@
               </Flyout>
             </Button.Flyout>
           </Button>
+          <Button DockPanel.Dock="Right"
+                  Content="Show details"
+                  Command="{Binding OpenDetailsCommand}"
+                  IsVisible="{Binding LastDetails, Converter={x:Static ObjectConverters.IsNotNull}}"
+                  Margin="8,0,0,0" />
           <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" TextWrapping="Wrap" />
         </DockPanel>
       </Grid>
@@ -114,6 +119,80 @@
             <Button DockPanel.Dock="Right" Content="Close" MinWidth="72" HorizontalContentAlignment="Center" Command="{Binding CloseHelpCommand}" />
           </DockPanel>
         </StackPanel>
+      </Border>
+    </Border>
+
+    <!-- Calibration details overlay. The dim layer's padding caps the card height at the window,
+         so the content sizes to itself and scrolls only when it would not fit. -->
+    <Border Background="#B0000000" IsVisible="{Binding IsDetailsOpen}" Padding="40,32">
+      <Border Background="#2C2C2C" BorderBrush="#565656" BorderThickness="1" CornerRadius="4" MaxWidth="720" Padding="24,20" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="Calibration details" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10" />
+          <DockPanel DockPanel.Dock="Bottom" LastChildFill="True" Margin="0,10,0,0">
+            <Button DockPanel.Dock="Left" Content="Copy debug text" Command="{Binding CopyDetailsCommand}" />
+            <Button DockPanel.Dock="Left" Content="Save debug zip..." Command="{Binding SaveDetailsZipCommand}" Margin="8,0,0,0" />
+            <Button DockPanel.Dock="Right" Content="Close" MinWidth="72" HorizontalContentAlignment="Center" Command="{Binding CloseDetailsCommand}" />
+            <TextBlock Text="{Binding DetailsFeedback}" Foreground="#999999" FontSize="12" VerticalAlignment="Center" Margin="12,0,8,0" TextTrimming="CharacterEllipsis" />
+          </DockPanel>
+          <ScrollViewer>
+            <!-- Right margin keeps the overlay scrollbar from covering the Status column. -->
+            <StackPanel Spacing="10" Margin="0,0,16,0">
+              <TextBlock Text="{Binding LastDetails.Error}" Foreground="#FF6B6B" TextWrapping="Wrap"
+                         IsVisible="{Binding LastDetails.HasError, FallbackValue=False}" />
+              <Border Background="#26FFB020" BorderBrush="#FFB020" BorderThickness="1" CornerRadius="4" Padding="12,10"
+                      IsVisible="{Binding LastDetails.HasWarnings, FallbackValue=False}">
+                <StackPanel Spacing="5">
+                  <TextBlock FontWeight="SemiBold" Foreground="#FFC65A" Text="Warnings" />
+                  <ItemsControl ItemsSource="{Binding LastDetails.Warnings}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="x:String">
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+              <TextBlock Text="{Binding LastDetails.FitSummary}" TextWrapping="Wrap" />
+              <StackPanel Spacing="5">
+                <TextBlock FontWeight="SemiBold" Text="Additional corrections" />
+                <ItemsControl ItemsSource="{Binding LastDetails.AppliedCorrections}"
+                              IsVisible="{Binding LastDetails.HasCorrections, FallbackValue=False}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                      <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="None - the standard LUT fit covered everything; no capture problems needed special handling." Foreground="#999999" TextWrapping="Wrap"
+                           IsVisible="{Binding !LastDetails.HasCorrections, FallbackValue=False}" />
+              </StackPanel>
+              <Border Background="#232323" CornerRadius="4" Padding="12,10">
+                <StackPanel Spacing="4">
+                  <Grid ColumnDefinitions="*,80,80,70,200">
+                    <TextBlock Grid.Column="0" Text="Capture" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Grid.Column="1" Text="Target" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Grid.Column="2" Text="Observed" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Grid.Column="3" Text="dE" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Grid.Column="4" Text="Status" FontWeight="SemiBold" FontSize="12" />
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding LastDetails.Rows}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:CalibrationDetailsViewModel+DetailRow">
+                        <Grid ColumnDefinitions="*,80,80,70,200">
+                          <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="1" Text="{Binding Target}" FontSize="12" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" />
+                          <TextBlock Grid.Column="2" Text="{Binding Observed}" FontSize="12" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" />
+                          <TextBlock Grid.Column="3" Text="{Binding DeltaE}" FontSize="12" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" />
+                          <TextBlock Grid.Column="4" Text="{Binding Status}" FontSize="12" TextWrapping="Wrap" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
       </Border>
     </Border>
 

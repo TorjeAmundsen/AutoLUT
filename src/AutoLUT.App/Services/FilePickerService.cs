@@ -50,4 +50,17 @@ public sealed class FilePickerService : IFilePickerService
 
         return file is null ? null : await file.OpenWriteAsync();
     }
+
+    public async Task<Stream?> CreateSaveZipAsync(string suggestedName)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save debug report",
+            SuggestedFileName = suggestedName,
+            DefaultExtension = "zip",
+            FileTypeChoices = [new FilePickerFileType("ZIP archive") { Patterns = ["*.zip"], MimeTypes = ["application/zip"] }],
+        });
+
+        return file is null ? null : await file.OpenWriteAsync();
+    }
 }

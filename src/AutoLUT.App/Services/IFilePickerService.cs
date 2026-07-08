@@ -7,4 +7,7 @@ public interface IFilePickerService
 
     /// <summary>Opens a save dialog; returns a writable stream or null if cancelled.</summary>
     Task<Stream?> CreateSaveFileAsync(string suggestedName);
+
+    /// <summary>Opens a save dialog for a zip archive; returns a writable stream or null if cancelled.</summary>
+    Task<Stream?> CreateSaveZipAsync(string suggestedName);
 }

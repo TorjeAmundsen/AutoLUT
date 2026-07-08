@@ -33,7 +33,8 @@ public sealed record ScreenshotResult(
     string? Error,
     PaletteColor? Target,
     Rgb? ObservedMean,
-    bool IsOutlier = false)
+    bool IsOutlier = false,
+    float? DeltaE = null)
 {
     public bool IsValid => Error is null && Target is not null;
 }
@@ -46,7 +47,10 @@ public sealed record CalibrationResult(
     RawImage? LutImage,
     FitDiagnostics? Diagnostics,
     string? ColorSpaceWarning = null,
-    string? CrushWarning = null)
+    string? CrushWarning = null,
+    IReadOnlyList<string>? AppliedCorrections = null)
 {
     public bool Success => Error is null && LutImage is not null;
+
+    public IReadOnlyList<string> Corrections => AppliedCorrections ?? [];
 }
