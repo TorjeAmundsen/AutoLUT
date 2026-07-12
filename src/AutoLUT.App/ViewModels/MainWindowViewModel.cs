@@ -55,8 +55,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     /// <summary>First help step differs per platform: web offers a download, desktop bundles the folder.</summary>
     public string HelpSavestatesStep => OperatingSystem.IsBrowser()
-        ? "1. Get the calibration colors onto your console. OoT on N64 or Wii VC: use the Downloads button below to get the gz savestates and copy the folder matching your game version (1.0 or 1.2) to your SD card. Wii with the Homebrew Channel: download the AutoLUT Palette app instead and extract the zip to the root of your SD card."
-        : "1. Get the calibration colors onto your console. OoT on N64 or Wii VC: copy the gz savestates folder matching your game version (1.0 or 1.2) from the savestates folder next to the program to your SD card. Wii with the Homebrew Channel: download the AutoLUT-Palette zip from the GitHub releases page and extract it to the root of your SD card.";
+        ? "1. Get the calibration colors onto your console. OoT on N64 or Wii VC: use the Downloads button below to get the gz savestates and copy the folder matching your game version (1.0 or 1.2) to your SD card. Wii with the Homebrew Channel: download the AutoLUT Palette app instead and extract the zip to the root of your SD card. N64 with a flashcart: download the AutoLUT Palette N64 ROM and boot it from the flashcart menu."
+        : "1. Get the calibration colors onto your console. OoT on N64 or Wii VC: copy the gz savestates folder matching your game version (1.0 or 1.2) from the savestates folder next to the program to your SD card. Wii with the Homebrew Channel: download the AutoLUT-Palette zip from the GitHub releases page and extract it to the root of your SD card. N64 with a flashcart: download the AutoLUT-Palette .z64 from the releases page and boot it from the flashcart menu.";
 
     [ObservableProperty]
     private bool _isHelpOpen;

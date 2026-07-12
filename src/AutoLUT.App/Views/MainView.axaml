@@ -82,6 +82,8 @@
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
                   <Button Content="AutoLUT Palette (Wii app)" Click="OnWiiAppLinkClick"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                  <Button Content="AutoLUT Palette (N64 ROM)" Click="OnN64RomLinkClick"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
                 </StackPanel>
               </Flyout>
             </Button.Flyout>

@@ -30,3 +30,12 @@ jobs:
 
       - name: Build homebrew
         run: make -C wii
+
+  n64:
+    runs-on: ubuntu-latest
+    container: ghcr.io/dragonminded/libdragon:latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build ROM
+        run: sh n64/build.sh

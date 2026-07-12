@@ -33,6 +33,9 @@ jobs:
       - name: Build Wii homebrew
         run: docker run --rm -v "$PWD:/src" -w /src/wii devkitpro/devkitppc:latest make
 
+      - name: Build N64 ROM
+        run: docker run --rm -v "$PWD:/src" -w /src ghcr.io/dragonminded/libdragon:latest sh n64/build.sh
+
       - name: Assemble site
         run: |
           SITE=src/AutoLUT.Browser/bin/Release/net10.0-browser/publish/wwwroot
@@ -46,6 +49,8 @@ jobs:
           cp wii/boot.dol wii/meta.xml hbc/apps/autolut-palette/
           cd hbc
           zip -r "../$SITE/AutoLUT-Palette.zip" apps
+          cd ..
+          cp n64/autolut-palette.z64 "$SITE/"
 
       - uses: actions/upload-pages-artifact@v5
         with:

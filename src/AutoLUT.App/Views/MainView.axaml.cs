@@ -41,6 +41,23 @@ public partial class MainView : UserControl
         }
     }
 
+    private async void OnN64RomLinkClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // The ROM sits next to index.html on the Pages site, same as the savestates.
+            if (App.BaseUri is { } baseUri
+                && TopLevel.GetTopLevel(this) is { } topLevel)
+            {
+                await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, "autolut-palette.z64"));
+            }
+        }
+        catch
+        {
+            // Opening a download must never take the app down.
+        }
+    }
+
     private async void OnSavestatesVersionClick(object? sender, RoutedEventArgs e)
     {
         try

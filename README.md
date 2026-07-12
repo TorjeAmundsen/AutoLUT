@@ -20,8 +20,9 @@ AutoLUT generates an OBS-compatible `LUT.png` that color-corrects your Wii captu
 
 Calibration works by displaying 39 known colors on your console and screenshotting each one. Because AutoLUT knows exactly which color is being displayed, it can measure precisely how your capture chain distorts colors and compute the correction. Two ways to display the colors:
 
-- **gz savestates** (Ocarina of Time on N64 or Wii VC): [gz](https://github.com/glankk/gz) savestates that fill the entire screen with each color.
 - **AutoLUT Palette** (Wii Homebrew Channel): a homebrew app that displays the colors fullscreen - no game required. Download `AutoLUT-Palette-<version>.zip` from [releases](/../../releases/latest) and extract it to the root of your SD card.
+- **AutoLUT Palette** (N64 with a flashcart): a [libdragon](https://libdragon.dev) ROM that displays the colors fullscreen with exact 8-bit output (32-bit framebuffer, no dithering or VI filtering - none of the RGBA5551 quantization a game's renderer goes through). Download `AutoLUT-Palette-<version>.z64` from [releases](/../../releases/latest) and boot it from your flashcart.
+- **gz savestates** (Ocarina of Time on N64 or Wii VC): [gz](https://github.com/glankk/gz) savestates that fill the entire screen with each color.
 
 ## How to Use
 
@@ -30,9 +31,10 @@ Calibration works by displaying 39 known colors on your console and screenshotti
 > Strongly recommended: bind a hotkey to **Screenshot Selected Source** (OBS Settings → Hotkeys) and keep your capture source selected - 39 screenshots through the right-click menu is a good way to lose your mind.
 
 1. Get the calibration colors onto your console:
+   - **AutoLUT Palette (Wii)**: extract `AutoLUT-Palette-<version>.zip` from [releases](/../../releases/latest) to the root of your SD card and launch it from the Homebrew Channel.
+   - **AutoLUT Palette (N64)**: put `AutoLUT-Palette-<version>.z64` from [releases](/../../releases/latest) on your flashcart's SD card and boot it.
    - **gz**: the savestates are bundled in the `savestates/` folder next to the executable (also downloadable as a separate zip from releases). Copy the folder matching your game version - `lut_gzs_1.0` or `lut_gzs_1.2` - to your SD card. The savestates require [gz](https://github.com/glankk/gz) **0.3.7 or newer**.
-   - **AutoLUT Palette**: extract `AutoLUT-Palette-<version>.zip` from [releases](/../../releases/latest) to the root of your SD card and launch it from the Homebrew Channel.
-2. Display each color and screenshot it. With gz, load each savestate; with AutoLUT Palette, step through the colors with LEFT/RIGHT (A also advances, HOME exits). There are 39 colors; capture them in any order with any filenames - AutoLUT detects which color each screenshot shows automatically. The game HUD or the palette app's corner label is fine, but keep the center of the screen clear: no watches or other overlays.
+2. Display each color and screenshot it. With gz, load each savestate; with AutoLUT Palette, step through the colors with LEFT/RIGHT (A also advances, HOME/Start exits). There are 39 colors; capture them in any order with any filenames - AutoLUT detects which color each screenshot shows automatically. The game HUD or the palette app's corner label is fine, but keep the center of the screen clear: no watches or other overlays.
 3. Open AutoLUT, click **Load images...** and select all your screenshots.
 4. Click **Generate LUT**. Each screenshot gets matched to its color (shown as a swatch in the list); problems are reported per screenshot.
 5. Check the result with **Show Corrected Image** - the corrected preview replicates OBS's Apply LUT filter exactly, so what you see is what OBS will render.
@@ -68,8 +70,11 @@ Requires .NET 10 SDK. Release builds use Native AOT compilation.
 
 # Build the AutoLUT Palette Wii homebrew (uses Docker with devkitPro)
 ./build.ps1 --wii
+
+# Build the AutoLUT Palette N64 ROM (uses Docker with libdragon)
+./build.ps1 --n64
 ```
 
-The Linux cross-compilation and the Wii homebrew build require Docker to be running.
+The Linux cross-compilation, the Wii homebrew build, and N64 ROM build all require Docker to be running.
 
 Run the tests with `dotnet test`. The calibration savestates are generated from per-version templates by `savestates/generate_states.py` (pass `-v 1.0` or `-v 1.2` to regenerate a single set).
