@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<app version="1">
+  <name>AutoLUT Palette</name>
+  <coder>Torje</coder>
+  <version>1.0.0</version>
+  <release_date>20260712</release_date>
+  <short_description>Calibration colors for AutoLUT</short_description>
+  <long_description>Displays the 39 AutoLUT calibration colors fullscreen for capture color calibration.
+
+Screenshot each color in OBS, then load the screenshots into AutoLUT to generate a color-correction LUT for your capture setup.
+
+Controls (Wiimote or GameCube controller):
+LEFT/RIGHT - previous/next color
+A - next color
+HOME/START - exit</long_description>
+</app>

@@ -21,3 +21,12 @@ jobs:
 
       - name: Test
         run: dotnet test -c Release --no-build
+
+  wii:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitppc:latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build homebrew
+        run: make -C wii

@@ -68,7 +68,7 @@
                   IsVisible="{Binding IsDesktop}"
                   Margin="8,0,0,0" />
           <Button DockPanel.Dock="Right"
-                  Content="Download savestates"
+                  Content="Downloads"
                   IsVisible="{Binding ShowSavestatesLink}"
                   Margin="8,0,0,0">
             <Button.Flyout>
@@ -79,6 +79,8 @@
                   <Button Content="gz 0.3.7 OoT 1.1" IsEnabled="False" ToolTip.Tip="Not made yet"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
                   <Button Content="gz 0.3.7 OoT 1.2" Tag="1.2" Click="OnSavestatesVersionClick"
+                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                  <Button Content="AutoLUT Palette (Wii app)" Click="OnWiiAppLinkClick"
                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
                 </StackPanel>
               </Flyout>
@@ -104,16 +106,15 @@
             <StackPanel Spacing="5">
               <TextBlock FontWeight="SemiBold" Foreground="#FFC65A" Text="OBS setup - do this first" />
               <TextBlock TextWrapping="Wrap" Text="In Settings, Advanced, Video set Color Space to Rec. 709 and Color Range to Limited, since this is what modern streaming sites expect. In your capture source's Properties, set Color Space to Rec. 601 if that option exists, since this is the color space the Wii and N64 output." />
-              <TextBlock TextWrapping="Wrap" Foreground="#C8C8C8" Text="Exception: a scaler or internal HDMI mod (RetroTINK, PixelFX, Retro GEM, and similar) has already converted the signal to Rec. 709, so leave the source at Rec. 709 - actual hardware HDMI mods only; passive adapters like Wii2HDMI do not convert color space and stay at Rec. 601." />
               <TextBlock TextWrapping="Wrap" Foreground="#C8C8C8" Text="Mismatched color space settings distort colors before AutoLUT ever sees them." />
             </StackPanel>
           </Border>
           <TextBlock TextWrapping="Wrap" Text="{Binding HelpSavestatesStep}" />
-          <TextBlock TextWrapping="Wrap" Text="2. Load each savestate in gz and screenshot the solid color it displays - 39 colors, any order, any filenames. Screenshot the raw capture source: in OBS, right-click the source and use Screenshot (Source) with no filters. Strongly recommended: bind a hotkey to Screenshot Selected Source (OBS Settings, Hotkeys) - 39 screenshots through the right-click menu is a good way to lose your mind." />
+          <TextBlock TextWrapping="Wrap" Text="2. Display each color and screenshot it - 39 colors, any order, any filenames. With gz, load each savestate; with AutoLUT Palette, step through the colors with LEFT/RIGHT. Screenshot the raw capture source: in OBS, right-click the source and use Screenshot (Source) with no filters. Strongly recommended: bind a hotkey to Screenshot Selected Source (OBS Settings, Hotkeys) - 39 screenshots through the right-click menu is a good way to lose your mind." />
           <TextBlock TextWrapping="Wrap" Text="3. Click Load Images and select all your captures, then Generate LUT." />
           <TextBlock TextWrapping="Wrap" Text="4. Check the result with Show Corrected Image - the preview matches exactly what OBS will render." />
           <TextBlock TextWrapping="Wrap" Text="5. Save LUT.png, then in OBS: right-click your capture source, Filters, add Apply LUT, and select the file." />
-          <TextBlock TextWrapping="Wrap" Foreground="#999999" Text="All 9 gray savestates (including black and white) are required; at least 20 of the 39 colors must be identified. The game HUD in the screenshots is fine - just keep the center of the screen clear." />
+          <TextBlock TextWrapping="Wrap" Foreground="#999999" Text="All 9 gray colors (including black and white) are required; at least 20 of the 39 colors must be identified. The game HUD or the palette app's corner label in the screenshots is fine - just keep the center of the screen clear." />
           <DockPanel LastChildFill="False">
             <Button DockPanel.Dock="Left" Content="Full instructions on GitHub" Click="OnReadmeLinkClick" />
             <Button DockPanel.Dock="Right" Content="Close" MinWidth="72" HorizontalContentAlignment="Center" Command="{Binding CloseHelpCommand}" />

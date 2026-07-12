@@ -9,7 +9,7 @@ using AutoLUT.Core.Sampling;
 namespace AutoLUT.Core.Pipeline;
 
 /// <summary>
-/// Orchestrates validate -> identify -> fit -> generate for gz solid-color captures.
+/// Orchestrates validate -> identify -> fit -> generate for solid-color calibration captures.
 /// Ground truth is the commanded palette color, so there is nothing to align against;
 /// each capture contributes one correspondence (center-region mean -> commanded color).
 /// Per-screenshot failures mark that screenshot invalid without aborting the run.

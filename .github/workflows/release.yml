@@ -75,8 +75,28 @@ jobs:
           path: savestates-${{ github.ref_name }}.zip
           if-no-files-found: error
 
+  wii:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitppc:latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build homebrew
+        run: make -C wii
+
+      - name: Assemble HBC app folder
+        run: |
+          mkdir -p hbc/apps/autolut-palette
+          cp wii/boot.dol wii/meta.xml hbc/apps/autolut-palette/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wii-hbc
+          path: hbc/
+          if-no-files-found: error
+
   release:
-    needs: [build, savestates]
+    needs: [build, savestates, wii]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -85,6 +105,12 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+
+      - name: Zip Wii HBC package
+        run: |
+          cd artifacts
+          zip -r "AutoLUT-Palette-${{ github.ref_name }}.zip" apps
+          rm -rf apps
 
       - uses: softprops/action-gh-release@v3
         with:

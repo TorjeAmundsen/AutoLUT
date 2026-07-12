@@ -18,7 +18,10 @@ Same app, same results. Notes for the web version:
 
 AutoLUT generates an OBS-compatible `LUT.png` that color-corrects your Wii capture to match the console's true output colors. Apply it with OBS's built-in **Apply LUT** filter and your stream/recording colors match what the game actually outputs - no manual tweaking of curves or sliders.
 
-Calibration uses [gz](https://github.com/glankk/gz) savestates that fill the entire screen with known colors. Because AutoLUT knows exactly which color each savestate displays, it can measure precisely how your capture chain distorts colors and compute the correction.
+Calibration works by displaying 39 known colors on your console and screenshotting each one. Because AutoLUT knows exactly which color is being displayed, it can measure precisely how your capture chain distorts colors and compute the correction. Two ways to display the colors:
+
+- **gz savestates** (Ocarina of Time on N64 or Wii VC): [gz](https://github.com/glankk/gz) savestates that fill the entire screen with each color.
+- **AutoLUT Palette** (Wii Homebrew Channel): a homebrew app that displays the colors fullscreen - no game required. Download `AutoLUT-Palette-<version>.zip` from [releases](/../../releases/latest) and extract it to the root of your SD card.
 
 ## How to Use
 
@@ -26,8 +29,10 @@ Calibration uses [gz](https://github.com/glankk/gz) savestates that fill the ent
 >
 > Strongly recommended: bind a hotkey to **Screenshot Selected Source** (OBS Settings → Hotkeys) and keep your capture source selected - 39 screenshots through the right-click menu is a good way to lose your mind.
 
-1. Get the calibration savestates: they are bundled in the `savestates/` folder next to the executable (also downloadable as a separate zip from releases). Copy the folder matching your game version - `lut_gzs_1.0` or `lut_gzs_1.2` - to your SD card. The savestates require [gz](https://github.com/glankk/gz) **0.3.7 or newer**.
-2. Load each savestate in gz and screenshot the solid-color fill it displays. There are 39 colors; capture them in any order with any filenames - AutoLUT detects which color each screenshot shows automatically. The game HUD (hearts, buttons, counters, minimap) is fine, but keep the center of the screen clear: no watches or other overlays.
+1. Get the calibration colors onto your console:
+   - **gz**: the savestates are bundled in the `savestates/` folder next to the executable (also downloadable as a separate zip from releases). Copy the folder matching your game version - `lut_gzs_1.0` or `lut_gzs_1.2` - to your SD card. The savestates require [gz](https://github.com/glankk/gz) **0.3.7 or newer**.
+   - **AutoLUT Palette**: extract `AutoLUT-Palette-<version>.zip` from [releases](/../../releases/latest) to the root of your SD card and launch it from the Homebrew Channel.
+2. Display each color and screenshot it. With gz, load each savestate; with AutoLUT Palette, step through the colors with LEFT/RIGHT (A also advances, HOME exits). There are 39 colors; capture them in any order with any filenames - AutoLUT detects which color each screenshot shows automatically. The game HUD or the palette app's corner label is fine, but keep the center of the screen clear: no watches or other overlays.
 3. Open AutoLUT, click **Load images...** and select all your screenshots.
 4. Click **Generate LUT**. Each screenshot gets matched to its color (shown as a swatch in the list); problems are reported per screenshot.
 5. Check the result with **Show Corrected Image** - the corrected preview replicates OBS's Apply LUT filter exactly, so what you see is what OBS will render.
@@ -37,8 +42,7 @@ Calibration uses [gz](https://github.com/glankk/gz) savestates that fill the ent
 ### Capture requirements
 
 - In OBS, open **Settings -> Advanced -> Video** and set **Color Space** to **Rec. 709** and **Color Range** to **Limited**, since this is what modern streaming sites expect. In your capture source's **Properties**, set its **Color Space** to **Rec. 601** if that option exists, since this is the color space the Wii and N64 output. Mismatched color space settings distort the capture before AutoLUT ever sees it.
-  - Exception: if a scaler or internal HDMI mod sits between the console and your capture card - RetroTINK, PixelFX, Retro GEM, and similar - it has already converted the signal to **Rec. 709**, so leave the source's Color Space at **Rec. 709**. This means actual hardware HDMI mods only; passive adapters like Wii2HDMI do not convert color space, so they stay at **Rec. 601**.
-- All 9 gray savestates (including black and white) are required; at least 20 of the 39 colors total must be identified. More colors = better correction.
+- All 9 gray colors (including black and white) are required; at least 20 of the 39 colors total must be identified. More colors = better correction.
 - Any capture resolution works.
 - Each color should be captured exactly once - duplicates are rejected.
 - If AutoLUT warns about washed-out or crushed colors, your capture device and OBS disagree on color range (full vs limited). Fix it in the capture source's **Properties** - set **Color Range** to 'Partial' for washed-out captures or 'Full' for crushed ones - then re-capture. Calibrating on a crushed capture loses shadow/highlight detail permanently, so always fix this first.
@@ -61,8 +65,11 @@ Requires .NET 10 SDK. Release builds use Native AOT compilation.
 
 # Zip only the calibration savestates
 ./build.ps1 --savestates
+
+# Build the AutoLUT Palette Wii homebrew (uses Docker with devkitPro)
+./build.ps1 --wii
 ```
 
-The Linux cross-compilation requires Docker to be running.
+The Linux cross-compilation and the Wii homebrew build require Docker to be running.
 
 Run the tests with `dotnet test`. The calibration savestates are generated from per-version templates by `savestates/generate_states.py` (pass `-v 1.0` or `-v 1.2` to regenerate a single set).

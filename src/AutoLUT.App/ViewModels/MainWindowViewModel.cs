@@ -35,7 +35,7 @@ public partial class MainWindowViewModel : ObservableObject
     private bool _showCorrected;
 
     [ObservableProperty]
-    private string _statusText = "Capture the 39 gz calibration colors, then add the screenshots here.";
+    private string _statusText = "Capture the 39 calibration colors, then add the screenshots here.";
 
     [ObservableProperty]
     private Bitmap? _previewImage;
@@ -55,8 +55,8 @@ public partial class MainWindowViewModel : ObservableObject
 
     /// <summary>First help step differs per platform: web offers a download, desktop bundles the folder.</summary>
     public string HelpSavestatesStep => OperatingSystem.IsBrowser()
-        ? "1. Get the calibration savestates with the Download savestates button below and copy the folder matching your game version (1.0 or 1.2) to your SD card."
-        : "1. Get the calibration savestates from the savestates folder next to the program and copy the folder matching your game version (1.0 or 1.2) to your SD card.";
+        ? "1. Get the calibration colors onto your console. OoT on N64 or Wii VC: use the Downloads button below to get the gz savestates and copy the folder matching your game version (1.0 or 1.2) to your SD card. Wii with the Homebrew Channel: download the AutoLUT Palette app instead and extract the zip to the root of your SD card."
+        : "1. Get the calibration colors onto your console. OoT on N64 or Wii VC: copy the gz savestates folder matching your game version (1.0 or 1.2) from the savestates folder next to the program to your SD card. Wii with the Homebrew Channel: download the AutoLUT-Palette zip from the GitHub releases page and extract it to the root of your SD card.";
 
     [ObservableProperty]
     private bool _isHelpOpen;
@@ -217,7 +217,7 @@ public partial class MainWindowViewModel : ObservableObject
         HasLut = false;
         ShowCorrected = false;
         PreviewImage = null;
-        StatusText = "Capture the 39 gz calibration colors, then add the screenshots here.";
+        StatusText = "Capture the 39 calibration colors, then add the screenshots here.";
         LastDetails = null;
         IsDetailsOpen = false;
         GenerateCommand.NotifyCanExecuteChanged();

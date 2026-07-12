@@ -84,12 +84,11 @@ public static class ColorSpaceMatrixCheck
             ? "Colors look rotated as if the capture source is decoding with the wrong YCbCr color "
                 + "matrix (Rec. 601 vs Rec. 709). The LUT compensates, but a mismatch clips saturated "
                 + "colors and lowers accuracy - in the capture source's Properties set Color Space to "
-                + "'Rec. 601', then re-capture. (Keep it 'Rec. 709' only if a scaler or HDMI mod like "
-                + "RetroTINK/PixelFX sits before the card.)"
+                + "'Rec. 601', then re-capture."
             : "Colors look rotated as if the capture source is decoding with the wrong YCbCr color "
                 + "matrix (Rec. 601 vs Rec. 709). The LUT compensates, but a mismatch clips saturated "
                 + "colors and lowers accuracy - in the capture source's Properties set Color Space to "
-                + "'Rec. 709' (a scaler or HDMI mod already converted the signal), then re-capture.";
+                + "'Rec. 709', then re-capture.";
 
     /// <summary>Frobenius cosine similarity and magnitude fraction of residual e against signature c.</summary>
     private static (double Similarity, double Magnitude) Match(double[] e, double[] c)

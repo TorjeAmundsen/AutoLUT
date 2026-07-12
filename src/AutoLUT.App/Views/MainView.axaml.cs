@@ -24,6 +24,23 @@ public partial class MainView : UserControl
         }
     }
 
+    private async void OnWiiAppLinkClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // The zip sits next to index.html on the Pages site, same as the savestates.
+            if (App.BaseUri is { } baseUri
+                && TopLevel.GetTopLevel(this) is { } topLevel)
+            {
+                await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, "AutoLUT-Palette.zip"));
+            }
+        }
+        catch
+        {
+            // Opening a download must never take the app down.
+        }
+    }
+
     private async void OnSavestatesVersionClick(object? sender, RoutedEventArgs e)
     {
         try
