@@ -95,8 +95,26 @@ jobs:
           path: hbc/
           if-no-files-found: error
 
+  n64:
+    runs-on: ubuntu-latest
+    container: ghcr.io/dragonminded/libdragon:latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build ROM
+        run: sh n64/build.sh
+
+      - name: Version ROM filename
+        run: cp n64/autolut-palette.z64 "AutoLUT-Palette-${{ github.ref_name }}.z64"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: n64-rom
+          path: AutoLUT-Palette-*.z64
+          if-no-files-found: error
+
   release:
-    needs: [build, savestates, wii]
+    needs: [build, savestates, wii, n64]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -114,7 +132,9 @@ jobs:
 
       - uses: softprops/action-gh-release@v3
         with:
-          files: artifacts/*.zip
+          files: |
+            artifacts/*.zip
+            artifacts/*.z64
           draft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           name: ${{ github.ref_name }}

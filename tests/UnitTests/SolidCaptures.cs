@@ -75,6 +75,29 @@ internal static class SolidCaptures
         Math.Clamp(0.949f * c.G - 14.5f / 255f, 0f, 1f),
         Math.Clamp(0.958f * c.B - 13.6f / 255f, 0f, 1f));
 
+    /// <summary>Compressed highlights (matches a real N64 composite capture chain): near-linear
+    /// ramp (mild gamma) up to gray224, then a hard knee squeezes the top 31 levels into ~9
+    /// codes, so white lands ~18/255 below the ramp's extrapolation. The signature
+    /// HighlightCompressionCheck detects; without the white anchor the robust loop rejects
+    /// white as an outlier instead of learning the knee.</summary>
+    public static Rgb CompressHighlights(Rgb c) => new(
+        HighlightKnee(c.R, 0.848f, 0.952f, 200f / 255f),
+        HighlightKnee(c.G, 0.834f, 0.952f, 196f / 255f),
+        HighlightKnee(c.B, 0.840f, 0.960f, 197f / 255f));
+
+    private static float HighlightKnee(float value, float gain, float gamma, float white)
+    {
+        const float kneeStart = 224f / 255f;
+        float clamped = Math.Clamp(value, 0f, 1f);
+        float ramp = gain * MathF.Pow(Math.Min(clamped, kneeStart), gamma);
+        if (clamped <= kneeStart)
+        {
+            return ramp;
+        }
+
+        return ramp + (white - ramp) * (clamped - kneeStart) / (1f - kneeStart);
+    }
+
     /// <summary>
     /// Rec.601-encoded content decoded as Rec.709 (N_A = Decode709 * Encode601), on gamma-encoded RGB.
     /// Rows sum to 1, so grays are untouched and only chromatic colors rotate; saturated colors clip.

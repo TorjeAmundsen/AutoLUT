@@ -138,9 +138,36 @@ function BuildWii() {
     Write-Host "  Zipped: $zipName"
 }
 
+function BuildN64() {
+    Write-Host "Building AutoLUT Palette (N64)..."
+
+    docker run --rm `
+        -v "${PSScriptRoot}:/src" `
+        -w /src `
+        ghcr.io/dragonminded/libdragon:latest `
+        sh n64/build.sh `
+        | Out-Host
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "N64 ROM build failed with exit code $LASTEXITCODE"
+        exit $LASTEXITCODE
+    }
+
+    $romName = "$PSScriptRoot/build/AutoLUT-Palette-$appVersion.z64"
+    Copy-Item "$PSScriptRoot/n64/autolut-palette.z64" -Destination $romName -Force
+    Write-Host "  Output: $romName"
+}
+
 if ($args -contains "--wii") {
     if (-not (Test-Path "$PSScriptRoot/build")) { New-Item -ItemType Directory -Path "$PSScriptRoot/build" | Out-Null }
     BuildWii
+    Write-Host "Build complete."
+    exit 0
+}
+
+if ($args -contains "--n64") {
+    if (-not (Test-Path "$PSScriptRoot/build")) { New-Item -ItemType Directory -Path "$PSScriptRoot/build" | Out-Null }
+    BuildN64
     Write-Host "Build complete."
     exit 0
 }
@@ -159,6 +186,7 @@ if ($args -contains "--all") {
     }
     ZipSavestates
     BuildWii
+    BuildN64
     Write-Host "Build complete."
     exit 0
 }
@@ -169,11 +197,15 @@ for ($i = 0; $i -lt $rids.Count; $i++) {
     Write-Host "  [$($i + 1)] $($rids[$i])"
 }
 Write-Host "  [$($rids.Count + 1)] wii (AutoLUT Palette homebrew)"
+Write-Host "  [$($rids.Count + 2)] n64 (AutoLUT Palette ROM)"
 $ridChoice = Read-Host "Choice"
 
 if ([int]$ridChoice -eq $rids.Count + 1) {
     if (-not (Test-Path "$PSScriptRoot/build")) { New-Item -ItemType Directory -Path "$PSScriptRoot/build" | Out-Null }
     BuildWii
+} elseif ([int]$ridChoice -eq $rids.Count + 2) {
+    if (-not (Test-Path "$PSScriptRoot/build")) { New-Item -ItemType Directory -Path "$PSScriptRoot/build" | Out-Null }
+    BuildN64
 } else {
     $rid = $rids[[int]$ridChoice - 1]
     Build $rid
