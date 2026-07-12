@@ -101,7 +101,7 @@
 
     <!-- Help overlay -->
     <Border Background="#B0000000" IsVisible="{Binding IsHelpOpen}">
-      <Border Background="#2C2C2C" BorderBrush="#565656" BorderThickness="1" CornerRadius="4" MaxWidth="640" Padding="24,20" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <Border Background="#2C2C2C" BorderBrush="#565656" BorderThickness="1" CornerRadius="4" MaxWidth="780" Padding="24,20" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="10">
           <TextBlock Text="How to use AutoLUT" FontWeight="SemiBold" FontSize="16" />
           <Border Background="#26FFB020" BorderBrush="#FFB020" BorderThickness="1" CornerRadius="4" Padding="12,10">
@@ -111,7 +111,12 @@
               <TextBlock TextWrapping="Wrap" Foreground="#C8C8C8" Text="Mismatched color space settings distort colors before AutoLUT ever sees them." />
             </StackPanel>
           </Border>
-          <TextBlock TextWrapping="Wrap" Text="{Binding HelpSavestatesStep}" />
+          <StackPanel Spacing="4">
+            <TextBlock TextWrapping="Wrap" Text="1. Get the calibration colors onto your console:" />
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0" Text="{Binding HelpSourceWiiStep}" />
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0" Text="{Binding HelpSourceN64Step}" />
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0" Text="{Binding HelpSourceGzStep}" />
+          </StackPanel>
           <TextBlock TextWrapping="Wrap" Text="2. Display each color and screenshot it - 39 colors, any order, any filenames. With gz, load each savestate; with AutoLUT Palette, step through the colors with LEFT/RIGHT. Screenshot the raw capture source: in OBS, right-click the source and use Screenshot (Source) with no filters. Strongly recommended: bind a hotkey to Screenshot Selected Source (OBS Settings, Hotkeys) - 39 screenshots through the right-click menu is a good way to lose your mind." />
           <TextBlock TextWrapping="Wrap" Text="3. Click Load Images and select all your captures, then Generate LUT." />
           <TextBlock TextWrapping="Wrap" Text="4. Check the result with Show Corrected Image - the preview matches exactly what OBS will render." />

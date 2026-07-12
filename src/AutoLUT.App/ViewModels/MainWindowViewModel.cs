@@ -53,10 +53,20 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>The update checker is desktop-only; the button is hidden in the browser build.</summary>
     public bool IsDesktop => !OperatingSystem.IsBrowser();
 
-    /// <summary>First help step differs per platform: web offers a download, desktop bundles the folder.</summary>
-    public string HelpSavestatesStep => OperatingSystem.IsBrowser()
-        ? "1. Get the calibration colors onto your console. OoT on N64 or Wii VC: use the Downloads button below to get the gz savestates and copy the folder matching your game version (1.0 or 1.2) to your SD card. Wii with the Homebrew Channel: download the AutoLUT Palette app instead and extract the zip to the root of your SD card. N64 with a flashcart: download the AutoLUT Palette N64 ROM and boot it from the flashcart menu."
-        : "1. Get the calibration colors onto your console. OoT on N64 or Wii VC: copy the gz savestates folder matching your game version (1.0 or 1.2) from the savestates folder next to the program to your SD card. Wii with the Homebrew Channel: download the AutoLUT-Palette zip from the GitHub releases page and extract it to the root of your SD card. N64 with a flashcart: download the AutoLUT-Palette .z64 from the releases page and boot it from the flashcart menu.";
+    // First help step differs per platform: web offers downloads in the app, desktop
+    // bundles the savestates and points at the GitHub releases page for the rest.
+
+    public string HelpSourceWiiStep => OperatingSystem.IsBrowser()
+        ? "- AutoLUT Palette (Wii): use the Downloads button below to get the app, extract the zip to the root of your SD card, then launch it from the Homebrew Channel."
+        : "- AutoLUT Palette (Wii): download the AutoLUT-Palette zip from the GitHub releases page, extract it to the root of your SD card, then launch it from the Homebrew Channel.";
+
+    public string HelpSourceN64Step => OperatingSystem.IsBrowser()
+        ? "- AutoLUT Palette (N64): use the Downloads button below to get the ROM, put it on your flashcart's SD card and boot it."
+        : "- AutoLUT Palette (N64): download the AutoLUT-Palette .z64 from the GitHub releases page, put it on your flashcart's SD card and boot it.";
+
+    public string HelpSourceGzStep => OperatingSystem.IsBrowser()
+        ? "- gz savestates (OoT on N64 or Wii VC): use the Downloads button below and copy the folder matching your game version (1.0 or 1.2) to your SD card."
+        : "- gz savestates (OoT on N64 or Wii VC): copy the folder matching your game version (1.0 or 1.2) from the savestates folder next to the program to your SD card.";
 
     [ObservableProperty]
     private bool _isHelpOpen;

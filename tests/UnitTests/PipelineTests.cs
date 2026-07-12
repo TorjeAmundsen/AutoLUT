@@ -188,6 +188,56 @@ public class PipelineTests
     }
 
     [Test]
+    public async Task EndToEnd_CompressedHighlights_KeepsWhiteInlierAndRecoversIt()
+    {
+        // Arrange: a knee squeezes 224->255 into ~9 codes (real N64 composite chain). Without the
+        // white anchor the robust loop rejects white as an outlier and the LUT extrapolates the
+        // top of the range; with it the curve shoulder must learn the knee and correct white back
+        // to ~255 while keeping both brightest neutrals inliers.
+        var shots = CalibrationPalette.Colors
+            .Select((c, i) => new ScreenshotInput($"{c.Hex}.png",
+                Png(SolidCaptures.CaptureColor(SolidCaptures.CompressHighlights(c.ToRgb()), 2, 1800 + i))))
+            .ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Success, Is.True, result.Error);
+            Assert.That(result.Warnings, Has.Some.Contains("compresses"));
+            Assert.That(result.Corrections, Has.Some.Contains("Highlight compression"));
+            foreach (var shot in result.Screenshots.Where(s => s.Target is { IsNeutral: true, R: 224 or 255 }))
+            {
+                Assert.That(shot.IsOutlier, Is.False, $"{shot.Name} must stay an inlier.");
+            }
+        }
+
+        var applier = new ObsLutApplier(result.LutImage!);
+        var white = SolidCaptures.CaptureColor(SolidCaptures.CompressHighlights(new Rgb(1f, 1f, 1f)), 2, 1900);
+        var correctedWhite = SolidColorAnalyzer.Analyze(applier.Apply(white)).Mean;
+        // ~249+ out of 255: uncorrected white sits ~55/255 low. The anchor weights are tuned on
+        // the real knee feed (39/39 inliers there); the synthetic's steepest channel recovers to
+        // ~250.8 rather than 252.
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(correctedWhite.R, Is.GreaterThan(249f / 255f), "Corrected white R still dim.");
+            Assert.That(correctedWhite.G, Is.GreaterThan(249f / 255f), "Corrected white G still dim.");
+            Assert.That(correctedWhite.B, Is.GreaterThan(249f / 255f), "Corrected white B still dim.");
+        }
+
+        var gray224 = SolidCaptures.CaptureColor(SolidCaptures.CompressHighlights(new Rgb(224f / 255f, 224f / 255f, 224f / 255f)), 2, 2000);
+        var correctedGray224 = SolidColorAnalyzer.Analyze(applier.Apply(gray224)).Mean;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(correctedGray224.R, Is.EqualTo(224f / 255f).Within(4f / 255f), "Corrected gray224 R off target.");
+            Assert.That(correctedGray224.G, Is.EqualTo(224f / 255f).Within(4f / 255f), "Corrected gray224 G off target.");
+            Assert.That(correctedGray224.B, Is.EqualTo(224f / 255f).Within(4f / 255f), "Corrected gray224 B off target.");
+        }
+    }
+
+    [Test]
     public async Task Run_FlagsInconsistentCaptureAsOutlier()
     {
         // Arrange: one capture is identifiable but its color disagrees with the transform that

@@ -34,6 +34,18 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
     private const double BlackAnchorWeight = 20.0;
     private const double Gray32AnchorWeight = 10.0;
 
+    // Compressed-highlight captures (HighlightCompressionCheck) mirror the crush handling at the
+    // top of the range: the knee squeezes 224->255 into a few codes, and without anchoring the
+    // robust loop rejects white as an outlier instead of learning the knee - the shoulder shape
+    // rides entirely on the two brightest neutrals. Unlike the crush pair (where black is pinned
+    // to an exact clamp), both shoulder points start equally misfit, so they need EQUAL weights:
+    // on the real knee feed 20/10 gets gray224 rejected by the white pull, and 20/20 shrinks the
+    // robust scale enough to reject three mid-dark grays. 10/10 keeps all 39 samples inliers
+    // (mean dE 0.0043, corrected white ~252) - validated against the real feed and the
+    // degradation-bounds simulation.
+    private const double WhiteAnchorWeight = 10.0;
+    private const double Gray224AnchorWeight = 10.0;
+
     private readonly IImageCodec _codec;
     private readonly IColorTransformFitter _fitter;
     private readonly ILutGenerator _lutGenerator;
@@ -179,7 +191,20 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
                 + "compensates for the rest of the range."
             : null;
 
-        var fitOptions = darksCrushed
+        float? highlightShortfall = HighlightCompressionCheck.Detect(MeanOf);
+        bool highlightsCompressed = highlightShortfall is not null;
+        // A full-range-as-limited mismatch hard-clips the same region, so its warning already
+        // explains the loss - the compensation below still applies either way.
+        if (highlightShortfall is { } shortfall && rangeWarning is null)
+        {
+            warnings.Add(
+                $"Something in the capture chain (capture device, splitter, cabling, ...) compresses "
+                + $"the brightest levels - white lands roughly {Math.Round(shortfall)} of 255 below where "
+                + "the rest of the ramp points, so some detail in very bright areas is flattened and "
+                + "cannot be fully recovered by the LUT. Calibration compensates for the rest of the range.");
+        }
+
+        var fitOptions = darksCrushed || highlightsCompressed
             ? _fitOptions with { CurveKnots = CrushCurveKnots, CurveSmoothness = CrushCurveSmoothness }
             : _fitOptions;
 
@@ -190,6 +215,14 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
                 $"Shadow crush compensation: fitting a finer {CrushCurveKnots}-knot tone curve and anchoring "
                 + $"black ({BlackAnchorWeight}x weight) and gray 32 ({Gray32AnchorWeight}x) so the curve toe "
                 + "follows the clipped shadows.");
+        }
+
+        if (highlightsCompressed)
+        {
+            corrections.Add(
+                $"Highlight compression compensation: fitting a finer {CrushCurveKnots}-knot tone curve and "
+                + $"anchoring white ({WhiteAnchorWeight}x weight) and gray 224 ({Gray224AnchorWeight}x) so the "
+                + "curve shoulder follows the compressed highlights.");
         }
 
         var correspondences = new List<ColorCorrespondence>(identified);
@@ -210,6 +243,14 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
             else if (darksCrushed && target is { IsNeutral: true, R: 32 })
             {
                 weight *= Gray32AnchorWeight;
+            }
+            else if (highlightsCompressed && target is { IsNeutral: true, R: 255 })
+            {
+                weight *= WhiteAnchorWeight;
+            }
+            else if (highlightsCompressed && target is { IsNeutral: true, R: 224 })
+            {
+                weight *= Gray224AnchorWeight;
             }
 
             correspondences.Add(new ColorCorrespondence(mean, target.ToRgb(), weight, stdDevs[i] * stdDevs[i]));
