@@ -6,7 +6,6 @@ namespace AutoLUT.App.Views;
 public partial class MainView : UserControl
 {
     private const string ReadmeUrl = "https://github.com/TorjeAmundsen/AutoLUT#readme";
-    private const string WiiAppReleasesUrl = "https://github.com/TorjeAmundsen/AutoLUT/releases/latest";
 
     public MainView() => InitializeComponent();
 
@@ -29,15 +28,16 @@ public partial class MainView : UserControl
     {
         try
         {
-            // The Wii app zip is built per release, so it lives on the releases page rather than the Pages site.
-            if (TopLevel.GetTopLevel(this) is { } topLevel)
+            // The zip sits next to index.html on the Pages site, same as the savestates.
+            if (App.BaseUri is { } baseUri
+                && TopLevel.GetTopLevel(this) is { } topLevel)
             {
-                await topLevel.Launcher.LaunchUriAsync(new Uri(WiiAppReleasesUrl));
+                await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, "AutoLUT-Palette.zip"));
             }
         }
         catch
         {
-            // Opening a link must never take the app down.
+            // Opening a download must never take the app down.
         }
     }
 

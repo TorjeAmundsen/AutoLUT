@@ -30,6 +30,9 @@ jobs:
       - name: Publish browser app
         run: dotnet publish src/AutoLUT.Browser -c Release
 
+      - name: Build Wii homebrew
+        run: docker run --rm -v "$PWD:/src" -w /src/wii devkitpro/devkitppc:latest make
+
       - name: Assemble site
         run: |
           SITE=src/AutoLUT.Browser/bin/Release/net10.0-browser/publish/wwwroot
@@ -38,6 +41,11 @@ jobs:
           cd savestates
           zip -r "../$SITE/savestates-1.0.zip" lut_gzs_1.0
           zip -r "../$SITE/savestates-1.2.zip" lut_gzs_1.2
+          cd ..
+          mkdir -p hbc/apps/autolut-palette
+          cp wii/boot.dol wii/meta.xml hbc/apps/autolut-palette/
+          cd hbc
+          zip -r "../$SITE/AutoLUT-Palette.zip" apps
 
       - uses: actions/upload-pages-artifact@v5
         with:
