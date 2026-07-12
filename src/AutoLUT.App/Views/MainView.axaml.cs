@@ -6,6 +6,7 @@ namespace AutoLUT.App.Views;
 public partial class MainView : UserControl
 {
     private const string ReadmeUrl = "https://github.com/TorjeAmundsen/AutoLUT#readme";
+    private const string WiiAppReleasesUrl = "https://github.com/TorjeAmundsen/AutoLUT/releases/latest";
 
     public MainView() => InitializeComponent();
 
@@ -16,6 +17,22 @@ public partial class MainView : UserControl
             if (TopLevel.GetTopLevel(this) is { } topLevel)
             {
                 await topLevel.Launcher.LaunchUriAsync(new Uri(ReadmeUrl));
+            }
+        }
+        catch
+        {
+            // Opening a link must never take the app down.
+        }
+    }
+
+    private async void OnWiiAppLinkClick(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // The Wii app zip is built per release, so it lives on the releases page rather than the Pages site.
+            if (TopLevel.GetTopLevel(this) is { } topLevel)
+            {
+                await topLevel.Launcher.LaunchUriAsync(new Uri(WiiAppReleasesUrl));
             }
         }
         catch

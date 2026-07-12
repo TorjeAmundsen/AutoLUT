@@ -7,7 +7,7 @@ $rids = @("win-x64", "linux-x64")
 
 $debug = $args -contains "--debug"
 
-$csprojVersion = ([xml](Get-Content "$PSScriptRoot/$project")).Project.PropertyGroup.Version
+$csprojVersion = ([xml](Get-Content "$PSScriptRoot/Directory.Build.props")).Project.PropertyGroup.Version
 $appVersion = "v$csprojVersion"
 
 function Build($rid) {
@@ -112,6 +112,39 @@ function ZipSavestates() {
     Write-Host "  Zipped: $zipName"
 }
 
+function BuildWii() {
+    Write-Host "Building AutoLUT Palette (Wii)..."
+
+    docker run --rm `
+        -v "${PSScriptRoot}:/src" `
+        -w /src/wii `
+        devkitpro/devkitppc:latest `
+        make `
+        | Out-Host
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Wii homebrew build failed with exit code $LASTEXITCODE"
+        exit $LASTEXITCODE
+    }
+
+    $appFolder = "$PSScriptRoot/build/wii-hbc/apps/autolut-palette"
+    if (Test-Path "$PSScriptRoot/build/wii-hbc") { Remove-Item "$PSScriptRoot/build/wii-hbc" -Recurse -Force }
+    New-Item -ItemType Directory -Path $appFolder -Force | Out-Null
+    Copy-Item "$PSScriptRoot/wii/boot.dol", "$PSScriptRoot/wii/meta.xml" -Destination $appFolder
+
+    $zipName = "$PSScriptRoot/build/AutoLUT-Palette-$appVersion.zip"
+    if (Test-Path $zipName) { Remove-Item $zipName }
+    Compress-Archive -Path "$PSScriptRoot/build/wii-hbc/apps" -DestinationPath $zipName
+    Write-Host "  Zipped: $zipName"
+}
+
+if ($args -contains "--wii") {
+    if (-not (Test-Path "$PSScriptRoot/build")) { New-Item -ItemType Directory -Path "$PSScriptRoot/build" | Out-Null }
+    BuildWii
+    Write-Host "Build complete."
+    exit 0
+}
+
 if ($args -contains "--savestates") {
     if (-not (Test-Path "$PSScriptRoot/build")) { New-Item -ItemType Directory -Path "$PSScriptRoot/build" | Out-Null }
     ZipSavestates
@@ -125,17 +158,24 @@ if ($args -contains "--all") {
         ZipBuild $out $rid
     }
     ZipSavestates
+    BuildWii
     Write-Host "Build complete."
     exit 0
 }
 
 # Interactive menu
-Write-Host "Select OS:"
+Write-Host "Select target:"
 for ($i = 0; $i -lt $rids.Count; $i++) {
     Write-Host "  [$($i + 1)] $($rids[$i])"
 }
+Write-Host "  [$($rids.Count + 1)] wii (AutoLUT Palette homebrew)"
 $ridChoice = Read-Host "Choice"
-$rid = $rids[[int]$ridChoice - 1]
 
-Build $rid
+if ([int]$ridChoice -eq $rids.Count + 1) {
+    if (-not (Test-Path "$PSScriptRoot/build")) { New-Item -ItemType Directory -Path "$PSScriptRoot/build" | Out-Null }
+    BuildWii
+} else {
+    $rid = $rids[[int]$ridChoice - 1]
+    Build $rid
+}
 Write-Host "Build complete."

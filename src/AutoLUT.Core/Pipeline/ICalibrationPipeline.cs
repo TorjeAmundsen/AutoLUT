@@ -13,7 +13,7 @@ public interface ICalibrationPipeline
         CancellationToken cancellationToken);
 }
 
-/// <summary>A user-supplied capture of a gz solid-color fill: display name plus raw PNG bytes.</summary>
+/// <summary>A user-supplied capture of a solid calibration color: display name plus raw PNG bytes.</summary>
 public sealed record ScreenshotInput(string Name, byte[] Data);
 
 public enum PipelineStage

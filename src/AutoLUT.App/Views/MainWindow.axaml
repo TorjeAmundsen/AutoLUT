@@ -4,7 +4,7 @@
     xmlns:views="using:AutoLUT.App.Views"
     x:Class="AutoLUT.App.Views.MainWindow"
     Icon="/Assets/icon.png"
-    Title="AutoLUT - OoT Capture Color Calibration"
+    Title="AutoLUT - Capture Color Calibration"
     Background="#2C2C2C"
     Width="1100"
     Height="665"

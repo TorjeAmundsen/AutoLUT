@@ -19,7 +19,7 @@ public sealed record PaletteColor(byte R, byte G, byte B, PaletteCategory Catego
 }
 
 /// <summary>
-/// The 39-color gz calibration palette. Composition validated by
+/// The 39-color calibration palette. Composition validated by
 /// simulation against capture degradation bounds (per-channel gain 0.8-1.2, gamma 0.85-1.25,
 /// bleed +/-0.03, noise +/-3): 27-point grid {0,128,255}^3, a 9-entry neutral ramp (grid neutrals
 /// plus 32..224), and 6 chroma mids that cut fit error ~24%. Near-black (16) and near-white (240)

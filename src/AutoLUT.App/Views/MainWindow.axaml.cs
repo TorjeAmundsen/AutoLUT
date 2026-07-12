@@ -13,6 +13,6 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Title = $"AutoLUT v{AppVersion} - OoT Capture Color Calibration";
+        Title = $"AutoLUT v{AppVersion} - Capture Color Calibration";
     }
 }

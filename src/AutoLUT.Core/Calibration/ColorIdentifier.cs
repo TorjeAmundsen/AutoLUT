@@ -52,7 +52,7 @@ public static class ColorIdentifier
 
         if (n < CalibrationPalette.Neutrals.Count + 2)
         {
-            return Fail($"Too few captures to identify ({n}). Capture the gz calibration palette colors.");
+            return Fail($"Too few captures to identify ({n}). Capture the calibration palette colors.");
         }
 
         // 1. Black and white by channel sum; any per-channel monotone capture map preserves them.
@@ -147,7 +147,7 @@ public static class ColorIdentifier
 
         if (anchorSamples.Count < MinAnchors)
         {
-            return Fail("Captured colors could not be identified. Are these gz palette captures?");
+            return Fail("Captured colors could not be identified. Are these calibration palette captures?");
         }
 
         // 4. Rough affine fit (2-knot curves degenerate to a line; smoothing no-ops).

@@ -79,10 +79,10 @@ public sealed class CalibrationDetailsViewModel
                     s.DeltaE is { } deltaE ? deltaE.ToString("F4") : "-",
                     s.Error is { } error ? error : s.IsOutlier ? "outlier (excluded from fit)" : "ok"),
             })
-            // Worst-first: errors, then outliers, then largest dE - the "what is off" reading order.
+            // Errors first, then outliers, then by target hex - stable order for comparing reports.
             .OrderByDescending(x => x.Shot.Error is not null)
             .ThenByDescending(x => x.Shot.IsOutlier)
-            .ThenByDescending(x => x.Shot.DeltaE ?? -1f)
+            .ThenBy(x => x.Shot.Target?.Hex ?? "", StringComparer.Ordinal)
             .Select(x => x.Row)
             .ToList();
 
