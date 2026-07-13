@@ -18,7 +18,7 @@ Same app, same results. Notes for the web version:
 
 AutoLUT generates an OBS-compatible `LUT.png` that color-corrects your Wii capture to match the console's true output colors. Apply it with OBS's built-in **Apply LUT** filter and your stream/recording colors match what the game actually outputs - no manual tweaking of curves or sliders.
 
-Calibration works by displaying 39 known colors on your console and screenshotting each one. Because AutoLUT knows exactly which color is being displayed, it can measure precisely how your capture chain distorts colors and compute the correction. Two ways to display the colors:
+Calibration works by displaying 39 known colors on your console and screenshotting each one. Because AutoLUT knows exactly which color is being displayed, it can measure precisely how your capture chain distorts colors and compute the correction. Three ways to display the colors:
 
 - **AutoLUT Palette** (Wii Homebrew Channel): a homebrew app that displays the colors fullscreen - no game required. Download `AutoLUT-Palette-<version>.zip` from [releases](/../../releases/latest) and extract it to the root of your SD card.
 - **AutoLUT Palette** (N64 with a flashcart): a [libdragon](https://libdragon.dev) ROM that displays the colors fullscreen with exact 8-bit output (32-bit framebuffer, no dithering or VI filtering - none of the RGBA5551 quantization a game's renderer goes through). Download `AutoLUT-Palette-<version>.z64` from [releases](/../../releases/latest) and boot it from your flashcart.
@@ -26,7 +26,7 @@ Calibration works by displaying 39 known colors on your console and screenshotti
 
 ## How to Use
 
-> When screenshotting, screenshot the **raw capture source**, not your processed output. In OBS, right-click your capture source and use **Screenshot (Source)** with **all filters turned off**. Do not edit or re-encode the files afterwards.
+> When screenshotting, screenshot the **raw capture source**, not your processed output. In OBS, right-click your capture source and use **Screenshot (Source)** with **all filters turned off**. Scaling/crop filters are okay, just make sure no color altering filters are enabled. Do not edit or re-encode the files afterwards.
 >
 > Strongly recommended: bind a hotkey to **Screenshot Selected Source** (OBS Settings → Hotkeys) and keep your capture source selected - 39 screenshots through the right-click menu is a good way to lose your mind.
 
@@ -46,13 +46,12 @@ Calibration works by displaying 39 known colors on your console and screenshotti
 - In OBS, open **Settings -> Advanced -> Video** and set **Color Space** to **Rec. 709** and **Color Range** to **Limited**, since this is what modern streaming sites expect. In your capture source's **Properties**, set its **Color Space** to **Rec. 601** if that option exists, since this is the color space the Wii and N64 output. Mismatched color space settings distort the capture before AutoLUT ever sees it.
 - All 9 gray colors (including black and white) are required; at least 20 of the 39 colors total must be identified. More colors = better correction.
 - Any capture resolution works.
-- Each color should be captured exactly once - duplicates are rejected.
-- If AutoLUT warns about washed-out or crushed colors, your capture device and OBS disagree on color range (full vs limited). Fix it in the capture source's **Properties** - set **Color Range** to 'Partial' for washed-out captures or 'Full' for crushed ones - then re-capture. Calibrating on a crushed capture loses shadow/highlight detail permanently, so always fix this first.
+- If AutoLUT warns about washed-out or crushed colors, your capture device and OBS disagree on color range (full vs limited). Fix it in the capture source's **Properties** - set **Color Range** to 'Partial' for washed-out captures or 'Full' for crushed ones - then re-capture. Calibrating on a crushed capture loses shadow/highlight detail permanently, so always fix this first. It's possible for your capture to simply be crushed without it being a color range issue, but people mismatch their color range settings fairly often.
 - A capture marked **excluded as outlier** (orange) was identified but disagreed with what all your other captures say about your capture chain, so it did not influence the LUT. One or two are harmless; re-capture them for maximum quality. Many outliers means something changed mid-capture (settings, input, lighting) - re-capture the whole set.
 
 ## How the color fill savestates work
 
-If you're curious about how the calibration savestates produce a known screen-fill color, see [FILLSCREEN.md](FILLSCREEN.md).
+If you're curious about how the gz calibration savestates produce a known screen-fill color, see [FILLSCREEN.md](FILLSCREEN.md).
 
 ## Building from Source
 
