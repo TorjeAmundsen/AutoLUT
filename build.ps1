@@ -52,7 +52,7 @@ function Build($rid) {
         Get-ChildItem "$output" -Filter "*.pdb" -ErrorAction SilentlyContinue | Remove-Item
         Get-ChildItem "$output" -Filter "*.dbg" -ErrorAction SilentlyContinue | Remove-Item
 
-        CopySavestates $output
+        CopyConsoleArtifacts $output
         Write-Host "  Output: $output"
         return $output
     }
@@ -84,14 +84,34 @@ function Build($rid) {
         Get-ChildItem "$output" -Filter "*.dbg" -ErrorAction SilentlyContinue | Remove-Item
     }
 
-    CopySavestates $output
+    CopyConsoleArtifacts $output
     Write-Host "  Output: $output"
     return $output
 }
 
-function CopySavestates($outputPath) {
+function CopyConsoleArtifacts($outputPath) {
     New-Item -ItemType Directory -Path "$outputPath/savestates" -Force | Out-Null
     Copy-Item -Path "$PSScriptRoot/savestates/lut_gzs_*" -Destination "$outputPath/savestates" -Recurse
+
+    # Bundle the console artifacts so the desktop app's guide can copy them to the clipboard.
+    # They are Docker-built (--wii / --n64); warn instead of failing when absent so plain
+    # desktop builds still work - the app falls back to the GitHub releases page.
+    if ((Test-Path "$PSScriptRoot/wii/boot.dol") -and (Test-Path "$PSScriptRoot/wii/meta.xml")) {
+        $wiiApp = "$outputPath/wii/apps/autolut-palette"
+        New-Item -ItemType Directory -Path $wiiApp -Force | Out-Null
+        Copy-Item "$PSScriptRoot/wii/boot.dol", "$PSScriptRoot/wii/meta.xml" -Destination $wiiApp
+    }
+    else {
+        Write-Warning "wii/boot.dol not found - Wii app not bundled. Run build.ps1 --wii first."
+    }
+
+    if (Test-Path "$PSScriptRoot/n64/autolut-palette.z64") {
+        New-Item -ItemType Directory -Path "$outputPath/n64" -Force | Out-Null
+        Copy-Item "$PSScriptRoot/n64/autolut-palette.z64" -Destination "$outputPath/n64"
+    }
+    else {
+        Write-Warning "n64/autolut-palette.z64 not found - N64 ROM not bundled. Run build.ps1 --n64 first."
+    }
 }
 
 function ZipBuild($outputPath, $rid) {
@@ -180,13 +200,14 @@ if ($args -contains "--savestates") {
 }
 
 if ($args -contains "--all") {
+    # Console artifacts first: the desktop builds bundle them into their output.
+    BuildWii
+    BuildN64
     foreach ($rid in $rids) {
         $out = Build $rid
         ZipBuild $out $rid
     }
     ZipSavestates
-    BuildWii
-    BuildN64
     Write-Host "Build complete."
     exit 0
 }

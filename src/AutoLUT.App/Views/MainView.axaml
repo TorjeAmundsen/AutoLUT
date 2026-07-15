@@ -46,11 +46,116 @@
         </Grid>
       </Grid>
 
-      <!-- Preview -->
+      <!-- Preview pane: shows the screenshot preview, or the "How to use" guide while it is open -->
       <Border Grid.Column="1" Grid.Row="0" Background="#151515" BorderBrush="#484848" BorderThickness="1" Margin="0,12,12,12" CornerRadius="4">
         <Panel>
-          <TextBlock Text="No screenshot selected" Foreground="#888888" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
-          <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="8" />
+          <Panel IsVisible="{Binding !Help.IsOpen}">
+            <TextBlock Text="No screenshot selected" Foreground="#888888" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
+            <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="8" />
+          </Panel>
+
+          <!-- Guide: platform-select page, then a step-through wizard per platform.
+               Also a drag-and-drop target for loading screenshots (wired in code-behind).
+               Transparent background keeps the whole pane hit-testable for drops. -->
+          <DockPanel x:Name="HelpGuide" DragDrop.AllowDrop="True" Background="Transparent"
+                     IsVisible="{Binding Help.IsOpen}" Margin="24,20">
+            <!-- Cap the content width for readability; the outer DockPanel still spans the
+                 whole pane so every pixel stays a drop target. Stretch (the default) keeps
+                 the width constant across steps - Center would size to each step's content. -->
+            <DockPanel MaxWidth="680">
+              <TextBlock DockPanel.Dock="Top" Text="How to use AutoLUT" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10" />
+
+              <!-- Bottom row pinned to the pane: GitHub link bottom-left, step navigation bottom-right -->
+              <DockPanel DockPanel.Dock="Bottom" LastChildFill="False" Margin="0,10,0,0">
+                <Button DockPanel.Dock="Left" Content="Full instructions on GitHub" Click="OnReadmeLinkClick" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8"
+                            IsVisible="{Binding !Help.IsPlatformPage}">
+                  <Button Content="Back" MinWidth="72" HorizontalContentAlignment="Center"
+                          Command="{Binding Help.BackCommand}" />
+                  <Button Content="{Binding Help.NextLabel}" MinWidth="72" HorizontalContentAlignment="Center"
+                          Command="{Binding Help.NextCommand}" />
+                </StackPanel>
+              </DockPanel>
+
+              <!-- Step content fills the remaining space and scrolls only if it must -->
+              <ScrollViewer>
+                <StackPanel Spacing="10">
+
+                  <!-- Page 0: platform choice -->
+                  <StackPanel Spacing="10" IsVisible="{Binding Help.IsPlatformPage}">
+                    <TextBlock Text="Choose your setup:" />
+                    <StackPanel Spacing="8">
+                      <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12,16"
+                              Command="{Binding Help.SelectPlatformCommand}" CommandParameter="wii">
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="Wii via Homebrew app (recommended)" FontWeight="SemiBold" />
+                          <TextBlock TextWrapping="Wrap" Foreground="#C8C8C8" FontSize="12"
+                                     Text="You have the Wii Homebrew channel available and want a quick and easy way to scroll through the required color palette." />
+                        </StackPanel>
+                      </Button>
+                      <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12,16"
+                              Command="{Binding Help.SelectPlatformCommand}" CommandParameter="n64">
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="N64 via custom ROM (recommended)" FontWeight="SemiBold" />
+                          <TextBlock TextWrapping="Wrap" Foreground="#C8C8C8" FontSize="12"
+                                     Text="You have an N64 flashcard available and want a quick and easy way to scroll through the required color palette. This is also technically more accurate than gz on N64." />
+                        </StackPanel>
+                      </Button>
+                      <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12,16"
+                              Command="{Binding Help.SelectPlatformCommand}" CommandParameter="gz">
+                        <StackPanel Spacing="8">
+                          <TextBlock Text="Ocarina of Time Practice ROM savestates (gz 0.3.7)" FontWeight="SemiBold" />
+                          <TextBlock TextWrapping="Wrap" Foreground="#C8C8C8" FontSize="12"
+                                     Text="You're an Ocarina of Time speedrunner and want to load the colors via gz without a custom homebrew app or custom N64 ROM aside from gz." />
+                        </StackPanel>
+                      </Button>
+                    </StackPanel>
+                  </StackPanel>
+
+                  <!-- Step page: header + body (amber callout variant for the OBS step) + note -->
+                  <StackPanel Spacing="8" IsVisible="{Binding !Help.IsPlatformPage}">
+                    <TextBlock Text="{Binding Help.StepHeader}" FontWeight="SemiBold" />
+                    <Border Background="#26FFB020" BorderBrush="#FFB020" BorderThickness="1" CornerRadius="4"
+                            Padding="12,10" IsVisible="{Binding Help.IsObsSetupStep}">
+                      <TextBlock Text="{Binding Help.StepBody}" TextWrapping="Wrap" />
+                    </Border>
+                    <TextBlock Text="{Binding Help.StepBody}" TextWrapping="Wrap"
+                               IsVisible="{Binding !Help.IsObsSetupStep}" />
+                    <!-- Artifact buttons on the get-colors step. Browser: direct downloads
+                         (gz per version); desktop: copy the bundled artifact to the clipboard
+                         for pasting onto the SD card, or open its folder. -->
+                    <Button Content="AutoLUT Palette (Wii app)" Click="OnWiiAppLinkClick"
+                            IsVisible="{Binding Help.ShowWiiDownload}" />
+                    <Button Content="AutoLUT Palette (N64 ROM)" Click="OnN64RomLinkClick"
+                            IsVisible="{Binding Help.ShowN64Download}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Help.ShowGzDownloads}">
+                      <Button Content="gz 0.3.7 OoT 1.0" Tag="1.0" Click="OnSavestatesVersionClick" />
+                      <Button Content="gz 0.3.7 OoT 1.1" IsEnabled="False" ToolTip.Tip="Not made yet" />
+                      <Button Content="gz 0.3.7 OoT 1.2" Tag="1.2" Click="OnSavestatesVersionClick" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Help.ShowWiiBundle}">
+                      <Button Content="Copy app to clipboard" Click="OnWiiCopyClick" />
+                      <Button Content="Open folder" Tag="wii" Click="OnBundleFolderClick" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Help.ShowN64Bundle}">
+                      <Button Content="Copy ROM to clipboard" Click="OnN64CopyClick" />
+                      <Button Content="Open folder" Tag="n64" Click="OnBundleFolderClick" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Help.ShowGzBundle}">
+                      <Button Content="Copy 1.0 savestates" Tag="1.0" Click="OnGzCopyClick" />
+                      <Button Content="Copy 1.2 savestates" Tag="1.2" Click="OnGzCopyClick" />
+                      <Button Content="Open folder" Tag="savestates" Click="OnBundleFolderClick" />
+                    </StackPanel>
+                    <Button Content="Load images..." Command="{Binding AddScreenshotsCommand}"
+                            IsVisible="{Binding Help.ShowLoadImages}" />
+                    <TextBlock Text="{Binding Help.StepNote}" Foreground="#999999" TextWrapping="Wrap"
+                               IsVisible="{Binding Help.HasStepNote}" />
+                  </StackPanel>
+
+                </StackPanel>
+              </ScrollViewer>
+            </DockPanel>
+          </DockPanel>
         </Panel>
       </Border>
 
@@ -59,8 +164,10 @@
         <CheckBox Grid.Column="0" Content="Show Corrected Image" IsChecked="{Binding ShowCorrected}" IsEnabled="{Binding HasLut}" VerticalAlignment="Center" Margin="12,0,0,0" />
         <DockPanel Grid.Column="1" LastChildFill="True">
           <Button DockPanel.Dock="Right"
-                  Content="How to use"
-                  Command="{Binding OpenHelpCommand}"
+                  Content="{Binding Help.ToggleLabel}"
+                  Command="{Binding ToggleHelpCommand}"
+                  MinWidth="100"
+                  HorizontalContentAlignment="Center"
                   Margin="8,0,0,0" />
           <Button DockPanel.Dock="Right"
                   Content="Check for updates"
@@ -98,37 +205,6 @@
       </Grid>
 
     </Grid>
-
-    <!-- Help overlay -->
-    <Border Background="#B0000000" IsVisible="{Binding IsHelpOpen}">
-      <Border Background="#2C2C2C" BorderBrush="#565656" BorderThickness="1" CornerRadius="4" MaxWidth="780" Padding="24,20" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <StackPanel Spacing="10">
-          <TextBlock Text="How to use AutoLUT" FontWeight="SemiBold" FontSize="16" />
-          <Border Background="#26FFB020" BorderBrush="#FFB020" BorderThickness="1" CornerRadius="4" Padding="12,10">
-            <StackPanel Spacing="5">
-              <TextBlock FontWeight="SemiBold" Foreground="#FFC65A" Text="OBS setup - do this first" />
-              <TextBlock TextWrapping="Wrap" Text="In Settings, Advanced, Video set Color Space to Rec. 709 and Color Range to Limited, since this is what modern streaming sites expect. In your capture source's Properties, set Color Space to Rec. 601 if that option exists, since this is the color space the Wii and N64 output." />
-              <TextBlock TextWrapping="Wrap" Foreground="#C8C8C8" Text="Mismatched color space settings distort colors before AutoLUT ever sees them." />
-            </StackPanel>
-          </Border>
-          <StackPanel Spacing="4">
-            <TextBlock TextWrapping="Wrap" Text="1. Get the calibration colors onto your console:" />
-            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0" Text="{Binding HelpSourceWiiStep}" />
-            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0" Text="{Binding HelpSourceN64Step}" />
-            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0" Text="{Binding HelpSourceGzStep}" />
-          </StackPanel>
-          <TextBlock TextWrapping="Wrap" Text="2. Display each color and screenshot it - 39 colors, any order, any filenames. With gz, load each savestate; with AutoLUT Palette, step through the colors with LEFT/RIGHT. Screenshot the raw capture source: in OBS, right-click the source and use Screenshot (Source) with no filters. Strongly recommended: bind a hotkey to Screenshot Selected Source (OBS Settings, Hotkeys) - 39 screenshots through the right-click menu is a good way to lose your mind." />
-          <TextBlock TextWrapping="Wrap" Text="3. Click Load Images and select all your captures, then Generate LUT." />
-          <TextBlock TextWrapping="Wrap" Text="4. Check the result with Show Corrected Image - the preview matches exactly what OBS will render." />
-          <TextBlock TextWrapping="Wrap" Text="5. Save LUT.png, then in OBS: right-click your capture source, Filters, add Apply LUT, and select the file." />
-          <TextBlock TextWrapping="Wrap" Foreground="#999999" Text="All 9 gray colors (including black and white) are required; at least 20 of the 39 colors must be identified. The game HUD or the palette app's corner label in the screenshots is fine - just keep the center of the screen clear." />
-          <DockPanel LastChildFill="False">
-            <Button DockPanel.Dock="Left" Content="Full instructions on GitHub" Click="OnReadmeLinkClick" />
-            <Button DockPanel.Dock="Right" Content="Close" MinWidth="72" HorizontalContentAlignment="Center" Command="{Binding CloseHelpCommand}" />
-          </DockPanel>
-        </StackPanel>
-      </Border>
-    </Border>
 
     <!-- Calibration details overlay. The dim layer's padding caps the card height at the window,
          so the content sizes to itself and scrolls only when it would not fit. -->
