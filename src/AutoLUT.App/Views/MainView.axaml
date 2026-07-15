@@ -77,9 +77,10 @@
                 </StackPanel>
               </DockPanel>
 
-              <!-- Step content fills the remaining space and scrolls only if it must -->
-              <ScrollViewer>
-                <StackPanel Spacing="10">
+              <!-- Step content fills the remaining space and scrolls only if it must.
+                   Right margin keeps the scrollbar from covering the text. -->
+              <ScrollViewer x:Name="GuideScroll">
+                <StackPanel Spacing="10" Margin="0,0,16,0">
 
                   <!-- Page 0: platform choice -->
                   <StackPanel Spacing="10" IsVisible="{Binding Help.IsPlatformPage}">
@@ -112,45 +113,51 @@
                     </StackPanel>
                   </StackPanel>
 
-                  <!-- Step page: header + body (amber callout variant for the OBS step) + note -->
-                  <StackPanel Spacing="8" IsVisible="{Binding !Help.IsPlatformPage}">
-                    <TextBlock Text="{Binding Help.StepHeader}" FontWeight="SemiBold" />
-                    <Border Background="#26FFB020" BorderBrush="#FFB020" BorderThickness="1" CornerRadius="4"
-                            Padding="12,10" IsVisible="{Binding Help.IsObsSetupStep}">
-                      <TextBlock Text="{Binding Help.StepBody}" TextWrapping="Wrap" />
-                    </Border>
-                    <TextBlock Text="{Binding Help.StepBody}" TextWrapping="Wrap"
-                               IsVisible="{Binding !Help.IsObsSetupStep}" />
-                    <!-- Artifact buttons on the get-colors step. Browser: direct downloads
-                         (gz per version); desktop: copy the bundled artifact to the clipboard
-                         for pasting onto the SD card, or open its folder. -->
-                    <Button Content="AutoLUT Palette (Wii app)" Click="OnWiiAppLinkClick"
-                            IsVisible="{Binding Help.ShowWiiDownload}" />
-                    <Button Content="AutoLUT Palette (N64 ROM)" Click="OnN64RomLinkClick"
-                            IsVisible="{Binding Help.ShowN64Download}" />
-                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Help.ShowGzDownloads}">
-                      <Button Content="gz 0.3.7 OoT 1.0" Tag="1.0" Click="OnSavestatesVersionClick" />
-                      <Button Content="gz 0.3.7 OoT 1.1" IsEnabled="False" ToolTip.Tip="Not made yet" />
-                      <Button Content="gz 0.3.7 OoT 1.2" Tag="1.2" Click="OnSavestatesVersionClick" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Help.ShowWiiBundle}">
-                      <Button Content="Copy app to clipboard" Click="OnWiiCopyClick" />
-                      <Button Content="Open folder" Tag="wii" Click="OnBundleFolderClick" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Help.ShowN64Bundle}">
-                      <Button Content="Copy ROM to clipboard" Click="OnN64CopyClick" />
-                      <Button Content="Open folder" Tag="n64" Click="OnBundleFolderClick" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Help.ShowGzBundle}">
-                      <Button Content="Copy 1.0 savestates" Tag="1.0" Click="OnGzCopyClick" />
-                      <Button Content="Copy 1.2 savestates" Tag="1.2" Click="OnGzCopyClick" />
-                      <Button Content="Open folder" Tag="savestates" Click="OnBundleFolderClick" />
-                    </StackPanel>
-                    <Button Content="Load images..." Command="{Binding AddScreenshotsCommand}"
-                            IsVisible="{Binding Help.ShowLoadImages}" />
-                    <TextBlock Text="{Binding Help.StepNote}" Foreground="#999999" TextWrapping="Wrap"
-                               IsVisible="{Binding Help.HasStepNote}" />
-                  </StackPanel>
+                  <!-- Revealed steps stack up below one another as the user clicks Next.
+                       Each step: header + body (amber callout variant for the OBS step)
+                       + per-step artifact buttons + note. -->
+                  <ItemsControl ItemsSource="{Binding Help.VisibleSteps}"
+                                IsVisible="{Binding !Help.IsPlatformPage}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:HelpWizardViewModel+GuideStepItem">
+                        <StackPanel Spacing="8" Margin="0,0,0,12">
+                          <TextBlock Text="{Binding Header}" FontWeight="SemiBold" />
+                          <Border Background="#26FFB020" BorderBrush="#FFB020" BorderThickness="1" CornerRadius="4"
+                                  Padding="12,10" IsVisible="{Binding IsObsSetup}">
+                            <TextBlock Text="{Binding Body}" TextWrapping="Wrap" />
+                          </Border>
+                          <TextBlock Text="{Binding Body}" TextWrapping="Wrap"
+                                     IsVisible="{Binding !IsObsSetup}" />
+                          <Button Content="AutoLUT Palette (Wii app)" Click="OnWiiAppLinkClick"
+                                  IsVisible="{Binding ShowWiiDownload}" />
+                          <Button Content="AutoLUT Palette (N64 ROM)" Click="OnN64RomLinkClick"
+                                  IsVisible="{Binding ShowN64Download}" />
+                          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowGzDownloads}">
+                            <Button Content="gz 0.3.7 OoT 1.0" Tag="1.0" Click="OnSavestatesVersionClick" />
+                            <Button Content="gz 0.3.7 OoT 1.1" IsEnabled="False" ToolTip.Tip="Not made yet" />
+                            <Button Content="gz 0.3.7 OoT 1.2" Tag="1.2" Click="OnSavestatesVersionClick" />
+                          </StackPanel>
+                          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowWiiBundle}">
+                            <Button Content="Copy app to clipboard" Click="OnWiiCopyClick" />
+                            <Button Content="Open folder" Tag="wii" Click="OnBundleFolderClick" />
+                          </StackPanel>
+                          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowN64Bundle}">
+                            <Button Content="Copy ROM to clipboard" Click="OnN64CopyClick" />
+                            <Button Content="Open folder" Tag="n64" Click="OnBundleFolderClick" />
+                          </StackPanel>
+                          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowGzBundle}">
+                            <Button Content="Copy 1.0 savestates" Tag="1.0" Click="OnGzCopyClick" />
+                            <Button Content="Copy 1.2 savestates" Tag="1.2" Click="OnGzCopyClick" />
+                            <Button Content="Open folder" Tag="savestates" Click="OnBundleFolderClick" />
+                          </StackPanel>
+                          <Button Content="Load images..." Click="OnLoadImagesClick"
+                                  IsVisible="{Binding ShowLoadImages}" />
+                          <TextBlock Text="{Binding Note}" Foreground="#999999" TextWrapping="Wrap"
+                                     IsVisible="{Binding HasNote}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
 
                 </StackPanel>
               </ScrollViewer>

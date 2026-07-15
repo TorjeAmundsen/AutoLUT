@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -25,7 +26,7 @@ public partial class HelpWizardViewModel : ObservableObject
 
     private static readonly HelpStep PaletteScreenshotStep = new(
         "Screenshot all 39 colors",
-        "Step through the colors with LEFT/RIGHT and screenshot each one - 39 colors, any order, any filenames. "
+        "Step through the colors with A (or use LEFT/RIGHT to go back/forth) and screenshot each one - 39 colors, any order, any filenames. "
         + ScreenshotTail,
         RequiredColorsNote + "The palette app's corner label in the screenshots is fine - just keep the center of the screen clear.");
 
@@ -38,7 +39,7 @@ public partial class HelpWizardViewModel : ObservableObject
     // (check the preview, save, apply in OBS) lives in this final step's note.
     private static readonly HelpStep LoadStep = new(
         "Load and generate",
-        "Click Load images below - or drag and drop your screenshots anywhere onto this guide - then click Generate LUT.",
+        "Click Load images below - or drag and drop your screenshots anywhere onto this guide - then click Generate LUT in the bottom left.",
         "When generation finishes, this guide closes and the corrected preview appears - it matches exactly what OBS "
         + "will render. Then Save LUT.png and in OBS: right-click your capture source, Filters, add Apply LUT, and select the file.");
 
@@ -84,52 +85,38 @@ public partial class HelpWizardViewModel : ObservableObject
     /// <summary>Label for the bottom-bar button that toggles the guide.</summary>
     public string ToggleLabel => IsOpen ? "Close guide" : "Open guide";
 
-    // 0 = platform-select page, 1..Steps.Length = wizard steps.
+    // 0 = platform-select page, 1..Steps.Length = number of revealed steps.
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsPlatformPage), nameof(IsObsSetupStep), nameof(StepHeader),
-        nameof(StepBody), nameof(StepNote), nameof(HasStepNote), nameof(NextLabel),
-        nameof(ShowWiiDownload), nameof(ShowN64Download), nameof(ShowGzDownloads),
-        nameof(ShowWiiBundle), nameof(ShowN64Bundle), nameof(ShowGzBundle), nameof(ShowLoadImages))]
+    [NotifyPropertyChangedFor(nameof(IsPlatformPage), nameof(NextLabel))]
     private int _stepIndex;
 
     private HelpStep[] _steps = [];
     private string _platform = "";
 
+    /// <summary>Steps revealed so far - they stack up as the user clicks Next; Back hides the last one.</summary>
+    public ObservableCollection<GuideStepItem> VisibleSteps { get; } = [];
+
     public bool IsPlatformPage => StepIndex == 0;
 
-    /// <summary>The OBS step keeps the amber "do this first" callout styling.</summary>
-    public bool IsObsSetupStep => StepIndex == 1;
-
-    // Artifact buttons live on the get-colors step (index 2). In the browser they download
-    // directly (gz per version); on desktop the artifacts are bundled next to the program,
-    // so each platform gets a copy-to-clipboard button and an open-folder button.
-    private bool IsDownloadStep => StepIndex == 2;
-    private bool IsBundleStep => IsDownloadStep && !OperatingSystem.IsBrowser();
-    public bool ShowWiiDownload => IsDownloadStep && _platform == "wii" && OperatingSystem.IsBrowser();
-    public bool ShowN64Download => IsDownloadStep && _platform == "n64" && OperatingSystem.IsBrowser();
-    public bool ShowGzDownloads => IsDownloadStep && _platform == "gz" && OperatingSystem.IsBrowser();
-    public bool ShowWiiBundle => IsBundleStep && _platform == "wii";
-    public bool ShowN64Bundle => IsBundleStep && _platform == "n64";
-    public bool ShowGzBundle => IsBundleStep && _platform == "gz";
-
-    /// <summary>The final step gets its own Load images button so the guide is actionable in place.</summary>
-    public bool ShowLoadImages => StepIndex > 0 && StepIndex == _steps.Length;
-
-    public string StepHeader => IsPlatformPage ? "" : $"Step {StepIndex} of {_steps.Length}: {_steps[StepIndex - 1].Title}";
-    public string StepBody => IsPlatformPage ? "" : _steps[StepIndex - 1].Body;
-    public string? StepNote => IsPlatformPage ? null : _steps[StepIndex - 1].Note;
-    public bool HasStepNote => StepNote is not null;
     public string NextLabel => StepIndex == _steps.Length ? "Done" : "Next";
 
     /// <summary>Opened via the main view model, which force-clears loaded images first.</summary>
     public void Open()
     {
         StepIndex = 0;
+        VisibleSteps.Clear();
         IsOpen = true;
     }
 
     [RelayCommand]
-    private void Back() => StepIndex--;
+    private void Back()
+    {
+        StepIndex--;
+        if (VisibleSteps.Count > 0)
+        {
+            VisibleSteps.RemoveAt(VisibleSteps.Count - 1);
+        }
+    }
 
     [RelayCommand]
     private void Next()
@@ -141,6 +128,7 @@ public partial class HelpWizardViewModel : ObservableObject
         else
         {
             StepIndex++;
+            RevealStep();
         }
     }
 
@@ -154,6 +142,58 @@ public partial class HelpWizardViewModel : ObservableObject
             "n64" => N64Steps,
             _ => GzSteps,
         };
-        StepIndex = 1; // StepIndex change notifications cover every derived property
+        VisibleSteps.Clear();
+        StepIndex = 1;
+        RevealStep();
+    }
+
+    private void RevealStep()
+    {
+        int index = VisibleSteps.Count + 1;
+        var step = _steps[index - 1];
+        VisibleSteps.Add(new GuideStepItem(index, _steps.Length, step.Title, step.Body, step.Note, _platform));
+    }
+
+    /// <summary>
+    /// One revealed step in the guide; immutable, with the per-step button visibility
+    /// precomputed from the step index and platform. The artifact buttons live on the
+    /// get-colors step (index 2): the browser downloads directly (gz per version), the
+    /// desktop copies the bundled artifact to the clipboard or opens its folder.
+    /// </summary>
+    public sealed class GuideStepItem
+    {
+        internal GuideStepItem(int index, int total, string title, string body, string? note, string platform)
+        {
+            Header = $"Step {index} of {total}: {title}";
+            Body = body;
+            Note = note;
+            IsObsSetup = index == 1;
+
+            bool isDownloadStep = index == 2;
+            bool isBrowser = OperatingSystem.IsBrowser();
+            ShowWiiDownload = isDownloadStep && isBrowser && platform == "wii";
+            ShowN64Download = isDownloadStep && isBrowser && platform == "n64";
+            ShowGzDownloads = isDownloadStep && isBrowser && platform == "gz";
+            ShowWiiBundle = isDownloadStep && !isBrowser && platform == "wii";
+            ShowN64Bundle = isDownloadStep && !isBrowser && platform == "n64";
+            ShowGzBundle = isDownloadStep && !isBrowser && platform == "gz";
+            ShowLoadImages = index == total;
+        }
+
+        public string Header { get; }
+        public string Body { get; }
+        public string? Note { get; }
+        public bool HasNote => Note is not null;
+
+        /// <summary>The OBS step keeps the amber "do this first" callout styling.</summary>
+        public bool IsObsSetup { get; }
+
+        public bool ShowWiiDownload { get; }
+        public bool ShowN64Download { get; }
+        public bool ShowGzDownloads { get; }
+        public bool ShowWiiBundle { get; }
+        public bool ShowN64Bundle { get; }
+        public bool ShowGzBundle { get; }
+        public bool ShowLoadImages { get; }
     }
 }

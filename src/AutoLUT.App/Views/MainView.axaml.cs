@@ -1,8 +1,10 @@
+using System.Collections.Specialized;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using AutoLUT.App.ViewModels;
 
 namespace AutoLUT.App.Views;
@@ -18,6 +20,32 @@ public partial class MainView : UserControl
         // DragOver/Drop are attached routed events, so they cannot be wired from XAML.
         DragDrop.AddDragOverHandler(HelpGuide, OnGuideDragOver);
         DragDrop.AddDropHandler(HelpGuide, OnGuideDrop);
+
+        // A newly revealed step appears below the fold once the list outgrows the pane,
+        // so scroll to it after the layout pass has sized it.
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.Help.VisibleSteps.CollectionChanged += (_, args) =>
+                {
+                    if (args.Action == NotifyCollectionChangedAction.Add)
+                    {
+                        Dispatcher.UIThread.Post(GuideScroll.ScrollToEnd, DispatcherPriority.Background);
+                    }
+                };
+            }
+        };
+    }
+
+    private void OnLoadImagesClick(object? sender, RoutedEventArgs e)
+    {
+        // Inside the step DataTemplate the DataContext is the step item, so the main
+        // view model's command is invoked from code-behind instead of a binding.
+        if (DataContext is MainWindowViewModel vm)
+        {
+            vm.AddScreenshotsCommand.Execute(null);
+        }
     }
 
     private void OnGuideDragOver(object? sender, DragEventArgs e)
