@@ -53,29 +53,23 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>The update checker is desktop-only; the button is hidden in the browser build.</summary>
     public bool IsDesktop => !OperatingSystem.IsBrowser();
 
-    // First help step differs per platform: web offers downloads in the app, desktop
-    // bundles the savestates and points at the GitHub releases page for the rest.
+    /// <summary>Step-through "How to use" guide shown in place of the preview pane.</summary>
+    public HelpWizardViewModel Help { get; } = new();
 
-    public string HelpSourceWiiStep => OperatingSystem.IsBrowser()
-        ? "- AutoLUT Palette (Wii): use the Downloads button below to get the app, extract the zip to the root of your SD card, then launch it from the Homebrew Channel."
-        : "- AutoLUT Palette (Wii): download the AutoLUT-Palette zip from the GitHub releases page, extract it to the root of your SD card, then launch it from the Homebrew Channel.";
-
-    public string HelpSourceN64Step => OperatingSystem.IsBrowser()
-        ? "- AutoLUT Palette (N64): use the Downloads button below to get the ROM, put it on your flashcart's SD card and boot it."
-        : "- AutoLUT Palette (N64): download the AutoLUT-Palette .z64 from the GitHub releases page, put it on your flashcart's SD card and boot it.";
-
-    public string HelpSourceGzStep => OperatingSystem.IsBrowser()
-        ? "- gz savestates (OoT on N64 or Wii VC): use the Downloads button below and copy the folder matching your game version (1.0 or 1.2) to your SD card."
-        : "- gz savestates (OoT on N64 or Wii VC): copy the folder matching your game version (1.0 or 1.2) from the savestates folder next to the program to your SD card.";
-
-    [ObservableProperty]
-    private bool _isHelpOpen;
-
+    // Starting the guide clears any loaded work so the user follows it from a clean slate.
     [RelayCommand]
-    private void OpenHelp() => IsHelpOpen = true;
-
-    [RelayCommand]
-    private void CloseHelp() => IsHelpOpen = false;
+    private void ToggleHelp()
+    {
+        if (Help.IsOpen)
+        {
+            Help.IsOpen = false;
+        }
+        else
+        {
+            ResetCore();
+            Help.Open();
+        }
+    }
 
     [ObservableProperty]
     private CalibrationDetailsViewModel? _lastDetails;
@@ -193,6 +187,12 @@ public partial class MainWindowViewModel : ObservableObject
             return;
         }
 
+        await AddScreenshotDataAsync(picked);
+    }
+
+    /// <summary>Decodes and adds screenshots; shared by the file picker and the guide's drag-and-drop.</summary>
+    public async Task AddScreenshotDataAsync(IReadOnlyList<(string Name, byte[] Data)> picked)
+    {
         foreach (var (name, data) in picked)
         {
             try
@@ -218,7 +218,9 @@ public partial class MainWindowViewModel : ObservableObject
     private bool CanReset() => Screenshots.Count > 0;
 
     [RelayCommand(CanExecute = nameof(CanReset))]
-    private void Reset()
+    private void Reset() => ResetCore();
+
+    private void ResetCore()
     {
         Screenshots.Clear();
         SelectedScreenshot = null;
@@ -322,6 +324,8 @@ public partial class MainWindowViewModel : ObservableObject
         _lutGeneration++;
         HasLut = true;
         ShowCorrected = true;
+        // The guide occupies the preview pane; close it so the corrected preview is visible.
+        Help.IsOpen = false;
         StatusText = (result.Diagnostics is { } d
             ? $"Finished - mean ΔE {d.MeanDeltaE:F4}, p95 {d.P95DeltaE:F4}, {d.InlierCount}/{d.TotalCount} inliers."
             : "Finished") + warningSuffix;
