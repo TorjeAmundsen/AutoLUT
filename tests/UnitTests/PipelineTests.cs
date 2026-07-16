@@ -238,11 +238,11 @@ public class PipelineTests
     }
 
     [Test]
-    public async Task Run_FlagsInconsistentCaptureAsOutlier()
+    public async Task Run_TintedGrayCapture_FailsInsteadOfShipping()
     {
-        // Arrange: one capture is identifiable but its color disagrees with the transform that
-        // explains every other capture (+25/255 red on the mid gray) - robust fitting must
-        // exclude it and the result must say which one.
+        // Arrange: one gray capture is identifiable but tinted (+25/255 red on the mid gray).
+        // The robust fit excludes it, but a LUT whose fit leaves a gray visibly non-neutral must
+        // not ship - the run fails naming the capture so the user re-takes it.
         var degradation = SolidCaptures.Degradation.Moderate;
         var shots = new List<ScreenshotInput>();
         int contaminatedIndex = -1;
@@ -265,10 +265,48 @@ public class PipelineTests
         // Assert
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Success, Is.True, result.Error);
-            Assert.That(result.Screenshots[contaminatedIndex].IsValid, Is.True);
-            Assert.That(result.Screenshots[contaminatedIndex].IsOutlier, Is.True);
-            Assert.That(result.Screenshots.Count(s => s.IsOutlier), Is.LessThanOrEqualTo(2));
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Does.Contain("tint"));
+            Assert.That(result.Error, Does.Contain("#808080.png"));
+            Assert.That(result.Screenshots[contaminatedIndex].IsOutlier, Is.True,
+                "The failure report should still flag the contaminated capture as the fit outlier.");
+        }
+    }
+
+    [Test]
+    public async Task Run_ShiftedGrayCaptures_FailsWithMissingWhiteAndDuplicate()
+    {
+        // Arrange: real capture means from a field debug zip where the upper five grays each
+        // showed the previous gray (palette/capture desync), #606060 was captured twice and white
+        // never captured. Historically this shipped a LUT that visibly tinted grays (corrected
+        // #202020 came out #0f181a, spread 11/255); identification must now catch it up front as
+        // a duplicate gray plus a missing white.
+        string[] observed =
+        [
+            "000000", "111315", "303533", "515355", "515355", "707573", "929594", "b1b3b3", "d2d3d6",
+            "000071", "0100f0", "057001", "087173", "0a70f4", "0fef06", "11f073", "13eff4",
+            "6e0000", "6f0072", "7200ef", "717404", "7072f1", "6ef206", "71f374", "71f3f2",
+            "e80002", "ea0070", "ec00f3", "ef7405", "f07671", "f171f3", "eef209", "eff475",
+            "b03631", "af35b2", "afb535", "3136b1", "31b335", "31b3b2",
+        ];
+        var shots = observed
+            .Select((h, i) => new ScreenshotInput($"shot{i:d2}.png", Png(SolidCaptures.CaptureColor(
+                new Rgb(
+                    Convert.ToInt32(h[..2], 16) / 255f,
+                    Convert.ToInt32(h[2..4], 16) / 255f,
+                    Convert.ToInt32(h[4..], 16) / 255f),
+                2, 40 + i))))
+            .ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Error, Does.Contain("#ffffff"));
+            Assert.That(result.Error, Does.Contain("duplicate"));
         }
     }
 

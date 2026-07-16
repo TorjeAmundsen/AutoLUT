@@ -13,8 +13,13 @@ public partial class HelpWizardViewModel : ObservableObject
         "OBS setup - do this first",
         "In Settings, Advanced, Video set Color Space to Rec. 709 and Color Range to Limited, since this is "
         + "what modern streaming sites expect. In your capture source's Properties, set Color Space to Rec. 601 "
-        + "if that option exists, since this is the color space the Wii and N64 output.",
-        "Mismatched color space settings distort colors before AutoLUT ever sees them.");
+        + "if that option exists, since this is the color space the Wii and N64 output. Also set Resolution/FPS "
+        + "Type to Custom and Resolution to 720x480 - some capture card drivers (for example Elgato) otherwise "
+        + "force their own color range conversion on top of OBS's, doubling any mismatch; a custom resolution "
+        + "makes OBS take over the conversion completely.",
+        "Mismatched color space settings distort colors before AutoLUT ever sees them. 720x480 is correct even "
+        + "for the N64: NTSC signal timings are fixed, so capture cards digitize any NTSC source to 720x480 "
+        + "regardless of the console's internal resolution.");
 
     private const string ScreenshotTail =
         "Screenshot the raw capture source: in OBS, right-click the source and use Screenshot (Source) with no "
