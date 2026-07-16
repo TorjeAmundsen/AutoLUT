@@ -152,8 +152,10 @@
                           </StackPanel>
                           <Button Content="Load images..." Click="OnLoadImagesClick"
                                   IsVisible="{Binding ShowLoadImages}" />
+                          <TextBlock Text="{Binding Note}" TextWrapping="Wrap"
+                                     IsVisible="{Binding HasPrimaryNote}" />
                           <TextBlock Text="{Binding Note}" Foreground="#999999" TextWrapping="Wrap"
-                                     IsVisible="{Binding HasNote}" />
+                                     IsVisible="{Binding HasSubtleNote}" />
                         </StackPanel>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>

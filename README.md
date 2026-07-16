@@ -43,11 +43,27 @@ Calibration works by displaying 39 known colors on your console and screenshotti
 
 ### Capture requirements
 
-- In OBS, open **Settings -> Advanced -> Video** and set **Color Space** to **Rec. 709** and **Color Range** to **Limited**, since this is what modern streaming sites expect. In your capture source's **Properties**, set its **Color Space** to **Rec. 601** if that option exists, since this is the color space the Wii and N64 output. Mismatched color space settings distort the capture before AutoLUT ever sees it.
-- All 9 gray colors (including black and white) are required; at least 20 of the 39 colors total must be identified. More colors = better correction.
-- Any capture resolution works.
+- Set up OBS before capturing - mismatched settings distort the capture before AutoLUT ever sees it, and incorrect settings **will** force you to re-take all captures if you want optimal and accurate results, so follow these closely:
+  - **Settings -> Advanced -> Video**: set **Color Space** to **Rec. 709** and **Color Range** to **Limited**, since this is what modern streaming sites expect.
+  - Capture source **Properties**: set **Color Space** to **Rec. 601** if that option exists, since this is the color space the Wii and N64 output.
+  - Capture source **Properties**: set **Resolution/FPS Type** to **Custom** and **Resolution** to **720x480**. Some capture card drivers (Elgato, for example) otherwise force their own color range conversion on top of OBS's, doubling any range mismatch. 720x480 is correct even for the N64: NTSC signal timings are fixed, so capture cards digitize any NTSC source to 720x480 regardless of the console's internal resolution.
+- All 9 gray colors (including black and white) are required; at least 20 of the 39 colors total must be identified. More colors = better correction. If any colors are outliers, it's most likely a settings issue. In most cases a correct setup will match all 39, even on fairly messed up capture feeds.
+- AutoLUT accepts any capture resolution - the Custom 720x480 setting above is about keeping the driver's hands off the color range, not about what AutoLUT needs.
 - If AutoLUT warns about washed-out or crushed colors, your capture device and OBS disagree on color range (full vs limited). Fix it in the capture source's **Properties** - set **Color Range** to 'Partial' for washed-out captures or 'Full' for crushed ones - then re-capture. Calibrating on a crushed capture loses shadow/highlight detail permanently, so always fix this first. It's possible for your capture to simply be crushed without it being a color range issue, but people mismatch their color range settings fairly often.
 - A capture marked **excluded as outlier** (orange) was identified but disagreed with what all your other captures say about your capture chain, so it did not influence the LUT. One or two are harmless; re-capture them for maximum quality. Many outliers means something changed mid-capture (settings, input, lighting) - re-capture the whole set.
+- Grays are held to a stricter standard: if the fit would leave any gray capture visibly tinted, AutoLUT refuses to generate the LUT. This almost always means an OBS or capture device settings mismatch (see above) - fix the settings and re-capture everything.
+
+### Cropping and scaling your game (optional)
+
+Not relevant to AutoLUT itself, but recommended regardless: to crop and scale a 4:3 game optimally, never use OBS' transform features (drag to scale, alt-drag to crop) - use filters for everything, ordered:
+
+1. **Apply LUT**
+2. **Crop/Pad**
+3. **Scaling/Aspect Ratio**
+
+Set **Crop/Pad** per game with the game running, since games render at different resolutions (basically none use 640x480 or 320x240).
+
+Set **Scaling/Aspect Ratio** to the 4:3 resolution that fills your canvas vertically - 1440x1080 on a 1920x1080 canvas - not just "4:3", with scale filtering on **Area**. Point also works for a really pixelated/harsh look, at the cost of uneven pixel row/column widths; never use the other scale filtering options here.
 
 ## How the color fill savestates work
 
