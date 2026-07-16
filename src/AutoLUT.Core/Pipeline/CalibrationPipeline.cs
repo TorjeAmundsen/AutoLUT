@@ -46,6 +46,14 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
     private const double WhiteAnchorWeight = 10.0;
     private const double Gray224AnchorWeight = 10.0;
 
+    // Max-minus-min channel spread (in 1/255 units) allowed on a corrected gray capture before
+    // the fit is declared gray-tinting. RGB spread rather than Oklab chroma: Oklab's cube-root
+    // slope blows up 1-2 LSB residuals at black (a legit 601/709 feed measured chroma 0.0198 at
+    // black vs 0.0138 on a genuinely tinted feed, no separating threshold). Measured spreads:
+    // all legitimate scenarios (degradation bounds, range mismatches, crush/knee chains, 601/709)
+    // stay <= 3; a real tinted-gray field fit hit 11 and a +25-red contaminated gray 30.
+    private const float GrayTintSpreadThreshold = 7f / 255f;
+
     private readonly IImageCodec _codec;
     private readonly IColorTransformFitter _fitter;
     private readonly ILutGenerator _lutGenerator;
@@ -279,10 +287,6 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
             ? ColorSpaceMatrixCheck.Detect(affine.Matrix)
             : null;
 
-        progress?.Report(new PipelineProgress(PipelineStage.GeneratingLut, "Generating LUT..."));
-        var lut = _lutGenerator.Generate(fit.Transform);
-        var lutImage = _lutWriter.Bake(lut, _lutTemplate);
-
         var outliers = new bool[n];
         var deltaEs = new float?[n];
         for (int k = 0; k < correspondenceShotIndex.Count; k++)
@@ -290,6 +294,43 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
             outliers[correspondenceShotIndex[k]] = !fit.Diagnostics.Inliers[k];
             deltaEs[correspondenceShotIndex[k]] = fit.Diagnostics.Residuals[k];
         }
+
+        // Grays anchor the neutral axis. If the fitted transform leaves any gray capture visibly
+        // tinted, the LUT would tint grays in that part of the ramp (seen in the field when fit
+        // outliers left the upper ramp unconstrained) - fail instead of shipping that LUT. Checked
+        // on the transform output rather than on outlier status: outlier grays with a neutral
+        // residual (extreme gamma toes, clipped ties) still correct fine and must keep working.
+        var tintedGrays = new List<string>();
+        for (int i = 0; i < n; i++)
+        {
+            if (targets[i] is { IsNeutral: true } && means[i] is { } grayMean)
+            {
+                // Clamped like the baked LUT output - endpoint overshoot (white above 1) is
+                // clipped away in the shipped LUT and must not read as spread here.
+                var correctedGray = fit.Transform.Apply(grayMean).Clamp01();
+                float maxChannel = Math.Max(correctedGray.R, Math.Max(correctedGray.G, correctedGray.B));
+                float minChannel = Math.Min(correctedGray.R, Math.Min(correctedGray.G, correctedGray.B));
+                if (maxChannel - minChannel > GrayTintSpreadThreshold)
+                {
+                    tintedGrays.Add(names[i]);
+                }
+            }
+        }
+
+        if (tintedGrays.Count > 0)
+        {
+            return new CalibrationResult(
+                BuildScreenshots(names, errors, targets, means, outliers, deltaEs),
+                $"The corrected gray capture(s) {string.Join(", ", tintedGrays)} come out visibly tinted - "
+                + "a LUT generated from this fit would tint grays. Double-check your OBS and capture source "
+                + "settings against the guide's OBS setup step (mismatched settings are the usual culprit), "
+                + "then re-take all captures - changed settings invalidate every capture.",
+                warnings, rangeWarning, null, fit.Diagnostics, colorSpaceWarning, crushWarning);
+        }
+
+        progress?.Report(new PipelineProgress(PipelineStage.GeneratingLut, "Generating LUT..."));
+        var lut = _lutGenerator.Generate(fit.Transform);
+        var lutImage = _lutWriter.Bake(lut, _lutTemplate);
 
         var outlierNames = Enumerable.Range(0, n).Where(i => outliers[i]).Select(i => names[i]).ToList();
         if (outlierNames.Count > 0)

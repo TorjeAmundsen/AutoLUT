@@ -10,11 +10,35 @@ public partial class HelpWizardViewModel : ObservableObject
     private sealed record HelpStep(string Title, string Body, string? Note = null);
 
     private static readonly HelpStep ObsStep = new(
-        "OBS setup - do this first",
-        "In Settings, Advanced, Video set Color Space to Rec. 709 and Color Range to Limited, since this is "
-        + "what modern streaming sites expect. In your capture source's Properties, set Color Space to Rec. 601 "
-        + "if that option exists, since this is the color space the Wii and N64 output.",
-        "Mismatched color space settings distort colors before AutoLUT ever sees them.");
+        "OBS setup part 1 - do this first",
+        "Incorrect OBS settings WILL force you to re-take all captures if you want optimal and accurate "
+        + "results, so follow these instructions closely.",
+        "1. In Settings, Advanced, Video set Color Space to Rec. 709 and Color Range to Limited, since this "
+        + "is what modern streaming sites expect.\n"
+        + "2. In your capture source's Properties, set Color Space to Rec. 601 if that option exists, since "
+        + "this is the color space the Wii and N64 output.\n"
+        + "3. Also in the source's Properties, set Resolution/FPS Type to Custom and Resolution to 720x480 - "
+        + "some capture card drivers (for example Elgato) otherwise force their own color range conversion on "
+        + "top of OBS's, doubling any mismatch; a custom resolution makes OBS take over the conversion "
+        + "completely.\n\n"
+        + "Mismatched color space settings distort colors before AutoLUT ever sees them. 720x480 is correct "
+        + "even for the N64: NTSC signal timings are fixed, so capture cards digitize any NTSC source to "
+        + "720x480 regardless of the console's internal resolution.");
+
+    private static readonly HelpStep CropScaleStep = new(
+        "OBS setup part 2 (optional, feel free to skip)",
+        "Not relevant to AutoLUT itself, but recommended regardless: to crop and scale a 4:3 game optimally, "
+        + "never use OBS' transform features (drag to scale, alt-drag to crop) - use filters for everything, "
+        + "ordered:\n"
+        + "1. Apply LUT\n"
+        + "2. Crop/Pad\n"
+        + "3. Scaling/Aspect Ratio\n\n"
+        + "Set Crop/Pad per game with the game running, since games render at different resolutions "
+        + "(basically none use 640x480 or 320x240).\n\n"
+        + "Set Scaling/Aspect Ratio to the 4:3 resolution that fills your canvas vertically - 1440x1080 on a "
+        + "1920x1080 canvas - not just '4:3', with scale filtering on Area. Point also works for a really "
+        + "pixelated/harsh look, at the cost of uneven pixel row/column widths; never use the other scale "
+        + "filtering options here.");
 
     private const string ScreenshotTail =
         "Screenshot the raw capture source: in OBS, right-click the source and use Screenshot (Source) with no "
@@ -36,7 +60,7 @@ public partial class HelpWizardViewModel : ObservableObject
         RequiredColorsNote + "The game HUD in the screenshots is fine - just keep the center of the screen clear.");
 
     // The guide auto-closes when Generate succeeds, so everything after generation
-    // (check the preview, save, apply in OBS) lives in this final step's note.
+    // (check the preview, save, apply in OBS) lives in this step's note.
     private static readonly HelpStep LoadStep = new(
         "Load and generate",
         "Click Load images below - or drag and drop your screenshots anywhere onto this guide - then click Generate LUT in the bottom left.",
@@ -49,6 +73,7 @@ public partial class HelpWizardViewModel : ObservableObject
     private static readonly HelpStep[] WiiSteps =
     [
         ObsStep,
+        CropScaleStep,
         new("Get the calibration colors onto your console", OperatingSystem.IsBrowser()
             ? "Use the download button below to get the app, extract the zip to the root of your SD card, then launch it from the Homebrew Channel."
             : "Use Copy app to clipboard below and paste it into the root of your SD card - it pastes as an apps folder "
@@ -60,6 +85,7 @@ public partial class HelpWizardViewModel : ObservableObject
     private static readonly HelpStep[] N64Steps =
     [
         ObsStep,
+        CropScaleStep,
         new("Get the calibration colors onto your console", OperatingSystem.IsBrowser()
             ? "Use the download button below to get the ROM, put it on your flashcart's SD card and boot it."
             : "Use Copy ROM to clipboard below and paste it wherever you see fit on your flashcart's SD card, then boot it."),
@@ -70,6 +96,7 @@ public partial class HelpWizardViewModel : ObservableObject
     private static readonly HelpStep[] GzSteps =
     [
         ObsStep,
+        CropScaleStep,
         new("Get the calibration colors onto your console", OperatingSystem.IsBrowser()
             ? "Use the download button matching your game version (1.0 or 1.2) below and copy the folder to your SD card."
             : "Use the copy button matching your game version (1.0 or 1.2) below and paste the folder wherever "
@@ -157,7 +184,7 @@ public partial class HelpWizardViewModel : ObservableObject
     /// <summary>
     /// One revealed step in the guide; immutable, with the per-step button visibility
     /// precomputed from the step index and platform. The artifact buttons live on the
-    /// get-colors step (index 2): the browser downloads directly (gz per version), the
+    /// get-colors step (index 3): the browser downloads directly (gz per version), the
     /// desktop copies the bundled artifact to the clipboard or opens its folder.
     /// </summary>
     public sealed class GuideStepItem
@@ -169,7 +196,7 @@ public partial class HelpWizardViewModel : ObservableObject
             Note = note;
             IsObsSetup = index == 1;
 
-            bool isDownloadStep = index == 2;
+            bool isDownloadStep = index == 3;
             bool isBrowser = OperatingSystem.IsBrowser();
             ShowWiiDownload = isDownloadStep && isBrowser && platform == "wii";
             ShowN64Download = isDownloadStep && isBrowser && platform == "n64";
@@ -183,7 +210,11 @@ public partial class HelpWizardViewModel : ObservableObject
         public string Header { get; }
         public string Body { get; }
         public string? Note { get; }
-        public bool HasNote => Note is not null;
+
+        /// <summary>The OBS step's note is full instructions, shown as normal text; other steps' notes are subtext.</summary>
+        public bool HasPrimaryNote => Note is not null && IsObsSetup;
+
+        public bool HasSubtleNote => Note is not null && !IsObsSetup;
 
         /// <summary>The OBS step keeps the amber "do this first" callout styling.</summary>
         public bool IsObsSetup { get; }
