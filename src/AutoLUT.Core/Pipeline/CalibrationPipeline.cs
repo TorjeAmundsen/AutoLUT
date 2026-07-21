@@ -342,9 +342,10 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
         progress?.Report(new PipelineProgress(PipelineStage.Finished, "Finished"));
         var screenshotsOut = BuildScreenshots(names, errors, targets, means, outliers, deltaEs);
+        // Only the success path carries the transform: Success == (Transform is not null).
         return new CalibrationResult(
             screenshotsOut, null, warnings, rangeWarning, lutImage, fit.Diagnostics,
-            colorSpaceWarning, crushWarning, corrections);
+            colorSpaceWarning, crushWarning, corrections, fit.Transform);
     }
 
     private static CalibrationResult BuildResult(

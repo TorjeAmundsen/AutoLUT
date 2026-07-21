@@ -42,6 +42,7 @@ public class PipelineTests
         {
             Assert.That(result.Error, Is.Null);
             Assert.That(result.Success, Is.True);
+            Assert.That(result.Transform, Is.Not.Null, "Success must expose the fitted transform.");
             Assert.That(result.Screenshots.All(s => s.IsValid), Is.True);
             Assert.That(result.CrushWarning, Is.Null,
                 "Gamma degradation must not trigger the crushed-shadows warning.");
@@ -476,6 +477,49 @@ public class PipelineTests
         {
             Assert.That(result.Success, Is.True, result.Error);
             Assert.That(result.Corrections, Has.Some.Contains("Shadow crush"));
+        }
+    }
+
+    [Test]
+    public async Task Run_Success_ExposesFittedTransform()
+    {
+        // Arrange
+        var pipeline = MakePipeline();
+
+        // Act
+        var result = await pipeline.RunAsync(PaletteShots(SolidCaptures.Degradation.Moderate, seedBase: 900), null, CancellationToken.None);
+
+        // Assert: the exposed transform is the fitted one - recomputing each shot's residual
+        // from it (clamped like the baked LUT, as the fitter does) must reproduce the reported
+        // per-shot dE.
+        Assert.That(result.Success, Is.True, result.Error);
+        Assert.That(result.Transform, Is.Not.Null);
+        using (Assert.EnterMultipleScope())
+        {
+            foreach (var shot in result.Screenshots.Where(s => s.IsValid))
+            {
+                float deltaE = Oklab.DeltaESrgb(result.Transform!.Apply(shot.ObservedMean!.Value).Clamp01(), shot.Target!.ToRgb());
+                Assert.That(deltaE, Is.EqualTo(shot.DeltaE!.Value).Within(1e-4f),
+                    $"{shot.Name}: exposed transform does not reproduce the reported residual.");
+            }
+        }
+    }
+
+    [Test]
+    public async Task Run_Failure_DoesNotExposeTransform()
+    {
+        // Arrange: too few captures - the run fails before fitting. The UI relies on
+        // Success == (Transform is not null).
+        var shots = PaletteShots(SolidCaptures.Degradation.Moderate, seedBase: 1000).Take(10).ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.Transform, Is.Null);
         }
     }
 

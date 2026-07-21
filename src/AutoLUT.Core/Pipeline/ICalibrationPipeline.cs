@@ -39,6 +39,10 @@ public sealed record ScreenshotResult(
     public bool IsValid => Error is null && Target is not null;
 }
 
+/// <summary>
+/// Outcome of a calibration run. Transform is the fitted color transform the LUT was baked from,
+/// non-null only on success; exposed for UI visualization, not part of the debug report.
+/// </summary>
 public sealed record CalibrationResult(
     IReadOnlyList<ScreenshotResult> Screenshots,
     string? Error,
@@ -48,7 +52,8 @@ public sealed record CalibrationResult(
     FitDiagnostics? Diagnostics,
     string? ColorSpaceWarning = null,
     string? CrushWarning = null,
-    IReadOnlyList<string>? AppliedCorrections = null)
+    IReadOnlyList<string>? AppliedCorrections = null,
+    IColorTransform? Transform = null)
 {
     public bool Success => Error is null && LutImage is not null;
 

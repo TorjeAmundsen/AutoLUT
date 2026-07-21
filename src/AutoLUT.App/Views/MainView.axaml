@@ -7,6 +7,63 @@
     Background="#2C2C2C"
 >
 
+  <UserControl.Resources>
+    <x:String x:Key="DeltaEExplanation">dE (delta E) is the color difference between the capture AFTER correction by this LUT and its target - it measures how well the correction lands, not how far off the raw capture was. Measured in the Oklab perceptual color space: 0 means identical, below roughly 0.0050 the difference is invisible even in flat colors side by side, around 0.0100 it is noticeable side-by-side, and 1.0 is about the distance from black to white.</x:String>
+    <!-- Palette-check tile: captured / corrected / target stacked top to bottom.
+         Tiles stretch to fill their UniformGrid cell and stay square: height tracks the
+         arranged width, and the three stripes split it via star rows. -->
+    <DataTemplate x:Key="SwatchTileTemplate" x:DataType="vm:CalibrationDetailsViewModel+SwatchTile">
+      <Border Background="Transparent" BorderBrush="{Binding TileBorderBrush}"
+              BorderThickness="1" CornerRadius="3"
+              Margin="2" ClipToBounds="True"
+              Height="{Binding $self.Bounds.Width}">
+        <!-- Monospace so the padded hex columns line up -->
+        <ToolTip.Tip>
+          <TextBlock Text="{Binding Tooltip}" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" />
+        </ToolTip.Tip>
+        <!-- Hovering a single stripe outlines it and names it. Stripes carry no border at
+             rest - even a transparent border insets the background and reads as a seam -
+             so the colors sit flush against each other; the outline only exists while
+             hovered. The label's drop shadow keeps white text readable on light stripes.
+             The selectors anchor on the stripe class because :pointerover also sets on
+             every ancestor while the pointer is inside it. -->
+        <Border.Styles>
+          <Style Selector="Border.stripe">
+            <Setter Property="BorderThickness" Value="0" />
+          </Style>
+          <Style Selector="Border.stripe:pointerover">
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="White" />
+          </Style>
+          <Style Selector="Border.stripe > TextBlock">
+            <Setter Property="IsVisible" Value="False" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Effect" Value="drop-shadow(0 1 4 #FF000000)" />
+          </Style>
+          <Style Selector="Border.stripe:pointerover > TextBlock">
+            <Setter Property="IsVisible" Value="True" />
+          </Style>
+        </Border.Styles>
+        <!-- ClipToBounds clips to the rect, not the corner radius, so the top and bottom
+             stripes round their outer corners themselves (outer radius 3 - 1px border = 2) -->
+        <Grid RowDefinitions="*,*,*">
+          <Border Grid.Row="0" Classes="stripe" Background="{Binding ObservedBrush}" CornerRadius="2,2,0,0">
+            <TextBlock Text="captured" />
+          </Border>
+          <Border Grid.Row="1" Classes="stripe" Background="{Binding CorrectedBrush}">
+            <TextBlock Text="corrected" />
+          </Border>
+          <Border Grid.Row="2" Classes="stripe" Background="{Binding TargetBrush}" CornerRadius="0,0,2,2">
+            <TextBlock Text="target" />
+          </Border>
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+
   <Panel>
 
     <Grid ColumnDefinitions="300,*" RowDefinitions="*,Auto">
@@ -245,7 +302,20 @@
                   </ItemsControl>
                 </StackPanel>
               </Border>
-              <TextBlock Text="{Binding LastDetails.FitSummary}" TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding LastDetails.FitSummary}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <!-- Hover-only info chip; not a Button because it triggers nothing -->
+                <Border Background="#3A3A3A" BorderBrush="#565656" BorderThickness="1" CornerRadius="3"
+                        Padding="8,2" Cursor="Help" VerticalAlignment="Center"
+                        ToolTip.Tip="{StaticResource DeltaEExplanation}">
+                  <Border.Styles>
+                    <Style Selector="Border:pointerover">
+                      <Setter Property="Background" Value="#454545" />
+                    </Style>
+                  </Border.Styles>
+                  <TextBlock Text="What is dE?" FontSize="11" Foreground="#C8C8C8" />
+                </Border>
+              </StackPanel>
               <StackPanel Spacing="5">
                 <TextBlock FontWeight="SemiBold" Text="Additional corrections" />
                 <ItemsControl ItemsSource="{Binding LastDetails.AppliedCorrections}"
@@ -259,13 +329,163 @@
                 <TextBlock Text="None - the standard LUT fit covered everything; no capture problems needed special handling." Foreground="#999999" TextWrapping="Wrap"
                            IsVisible="{Binding !LastDetails.HasCorrections, FallbackValue=False}" />
               </StackPanel>
+
+              <!-- Palette check: what the LUT does to each captured color -->
+              <Border Background="#232323" CornerRadius="4" Padding="12,10"
+                      IsVisible="{Binding LastDetails.HasVisualizations, FallbackValue=False}">
+                <StackPanel Spacing="6">
+                  <TextBlock FontWeight="SemiBold" FontSize="12" Text="Palette check" />
+                  <TextBlock FontSize="11" Foreground="#999999" TextWrapping="Wrap"
+                             Text="Each tile: captured (top), corrected by this LUT (middle), target (bottom). dE compares the middle and bottom rows - corrected against target - so a low dE means the middle stripe matches the target, however far off the capture was. Hover for values; an orange border marks fit outliers." />
+                  <TextBlock FontSize="11" Foreground="#999999" Text="Neutrals (dark to light)" />
+                  <ItemsControl ItemsSource="{Binding LastDetails.NeutralSwatches}"
+                                ItemTemplate="{StaticResource SwatchTileTemplate}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <UniformGrid Columns="9" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+                  <TextBlock FontSize="11" Foreground="#999999" Text="Colors (worst dE first)" Margin="0,4,0,0" />
+                  <ItemsControl ItemsSource="{Binding LastDetails.ChromaSwatches}"
+                                ItemTemplate="{StaticResource SwatchTileTemplate}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <UniformGrid Columns="10" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+
+              <!-- Two plot boxes side by side; equal heights via the shared grid row, plots
+                   anchored to the bottom so differing caption heights do not misalign them.
+                   Star columns: Auto would let the wrapping captions measure unconstrained
+                   and push the second box off screen. -->
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="10"
+                    IsVisible="{Binding LastDetails.HasVisualizations, FallbackValue=False}">
+
+                <!-- Tone curve: fitted transform sampled along the gray axis.
+                     Canvas size must match CalibrationDetailsViewModel.CurvePlotSize (220). -->
+                <Border Grid.Column="0" Background="#232323" CornerRadius="4" Padding="12,10">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" FontSize="12" Text="Tone curve" />
+                    <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="#999999" TextWrapping="Wrap" Margin="0,6,0,6"
+                               Text="Per-channel output for gray input (0 to 1, left to right). The dashed diagonal is no correction; flat ends indicate clipping." />
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom">
+                    <Border Background="#1A1A1A" BorderBrush="#484848" BorderThickness="1"
+                            Width="222" Height="222">
+                      <Canvas Width="220" Height="220">
+                        <!-- quarter gridlines -->
+                        <Line StartPoint="55,0" EndPoint="55,220" Stroke="#333333" StrokeThickness="1" />
+                        <Line StartPoint="110,0" EndPoint="110,220" Stroke="#333333" StrokeThickness="1" />
+                        <Line StartPoint="165,0" EndPoint="165,220" Stroke="#333333" StrokeThickness="1" />
+                        <Line StartPoint="0,55" EndPoint="220,55" Stroke="#333333" StrokeThickness="1" />
+                        <Line StartPoint="0,110" EndPoint="220,110" Stroke="#333333" StrokeThickness="1" />
+                        <Line StartPoint="0,165" EndPoint="220,165" Stroke="#333333" StrokeThickness="1" />
+                        <!-- identity reference -->
+                        <Line StartPoint="0,220" EndPoint="220,0" Stroke="#777777" StrokeThickness="1" StrokeDashArray="4,4" />
+                        <!-- channel curves; blue last so it stays visible where they overlap.
+                             FallbackValue: after Reset LastDetails is null and a null Points crashes the renderer. -->
+                        <Polyline Points="{Binding LastDetails.CurvePointsR, FallbackValue={x:Static vm:CalibrationDetailsViewModel.EmptyPoints}}" Stroke="#FF6B6B" StrokeThickness="1.5" StrokeJoin="Round" IsVisible="{Binding #CurveToggleR.IsChecked}" />
+                        <Polyline Points="{Binding LastDetails.CurvePointsG, FallbackValue={x:Static vm:CalibrationDetailsViewModel.EmptyPoints}}" Stroke="#4EC94E" StrokeThickness="1.5" StrokeJoin="Round" IsVisible="{Binding #CurveToggleG.IsChecked}" />
+                        <Polyline Points="{Binding LastDetails.CurvePointsB, FallbackValue={x:Static vm:CalibrationDetailsViewModel.EmptyPoints}}" Stroke="#6BA5FF" StrokeThickness="1.5" StrokeJoin="Round" IsVisible="{Binding #CurveToggleB.IsChecked}" />
+                      </Canvas>
+                    </Border>
+                    <!-- Channel toggles: inspect one curve at a time. Off = struck-through
+                         and dimmed label, so the state reads without relying on the theme's
+                         subtle checked background. -->
+                    <StackPanel Spacing="6" VerticalAlignment="Top">
+                      <StackPanel.Styles>
+                        <Style Selector="ToggleButton:not(:checked) TextBlock">
+                          <Setter Property="TextDecorations" Value="Strikethrough" />
+                          <Setter Property="Opacity" Value="0.4" />
+                        </Style>
+                        <!-- Explicit checked backgrounds: the theme's checked-hover brush is
+                             nearly identical to the resting surface, so on hover a checked
+                             toggle looked like it lost its state. -->
+                        <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                          <Setter Property="Background" Value="#565656" />
+                        </Style>
+                        <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                          <Setter Property="Background" Value="#666666" />
+                        </Style>
+                      </StackPanel.Styles>
+                      <ToggleButton x:Name="CurveToggleR" IsChecked="True" MinWidth="44" HorizontalContentAlignment="Center"
+                                    ToolTip.Tip="Show or hide the red channel curve">
+                        <TextBlock Text="R" Foreground="#FF6B6B" FontWeight="SemiBold" />
+                      </ToggleButton>
+                      <ToggleButton x:Name="CurveToggleG" IsChecked="True" MinWidth="44" HorizontalContentAlignment="Center"
+                                    ToolTip.Tip="Show or hide the green channel curve">
+                        <TextBlock Text="G" Foreground="#4EC94E" FontWeight="SemiBold" />
+                      </ToggleButton>
+                      <ToggleButton x:Name="CurveToggleB" IsChecked="True" MinWidth="44" HorizontalContentAlignment="Center"
+                                    ToolTip.Tip="Show or hide the blue channel curve">
+                        <TextBlock Text="B" Foreground="#6BA5FF" FontWeight="SemiBold" />
+                      </ToggleButton>
+                    </StackPanel>
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+
+                <!-- Vectorscope: Oklab a-b chroma plane, size must match
+                     CalibrationDetailsViewModel.ScopePlotSize (220) -->
+                <Border Grid.Column="1" Background="#232323" CornerRadius="4" Padding="12,10">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" FontSize="12" Text="Color shift" />
+                    <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="#999999" TextWrapping="Wrap" Margin="0,6,0,6"
+                               Text="Each capture's hue and saturation (lightness ignored). The line runs from the captured color to the corrected one; the dot is the target. Center is neutral gray; a common twist around the center means a colorspace mismatch." />
+                    <Border Background="#1A1A1A" BorderBrush="#484848" BorderThickness="1"
+                            Width="222" Height="222" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                      <Panel Width="220" Height="220">
+                        <!-- center crosshair + saturation rings -->
+                        <Line StartPoint="110,0" EndPoint="110,220" Stroke="#333333" StrokeThickness="1" />
+                        <Line StartPoint="0,110" EndPoint="220,110" Stroke="#333333" StrokeThickness="1" />
+                        <Ellipse Width="73" Height="73" Stroke="#333333" StrokeThickness="1"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Ellipse Width="147" Height="147" Stroke="#333333" StrokeThickness="1"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <!-- shift lines, observed to corrected; null Data (e.g. after Reset) is safe -->
+                        <Path Data="{Binding LastDetails.ScopeShifts}" Stroke="#777777" StrokeThickness="1" />
+                        <!-- target dots; diameter must equal 2 * ScopeDotRadius -->
+                        <ItemsControl ItemsSource="{Binding LastDetails.ScopeDots}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <Canvas />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.Styles>
+                            <!-- items get wrapped in ContentPresenters; Canvas.Left on the
+                                 template root would not position them -->
+                            <Style Selector="ContentPresenter" x:DataType="vm:CalibrationDetailsViewModel+ScopeDot">
+                              <Setter Property="Canvas.Left" Value="{Binding X}" />
+                              <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                            </Style>
+                          </ItemsControl.Styles>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CalibrationDetailsViewModel+ScopeDot">
+                              <Ellipse Width="6" Height="6" Fill="{Binding Brush}">
+                                <ToolTip.Tip>
+                                  <TextBlock Text="{Binding Tooltip}" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" />
+                                </ToolTip.Tip>
+                              </Ellipse>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </Panel>
+                    </Border>
+                  </DockPanel>
+                </Border>
+              </Grid>
+
               <Border Background="#232323" CornerRadius="4" Padding="12,10">
                 <StackPanel Spacing="4">
                   <Grid ColumnDefinitions="*,80,80,70,200">
                     <TextBlock Grid.Column="0" Text="Capture" FontWeight="SemiBold" FontSize="12" />
                     <TextBlock Grid.Column="1" Text="Target" FontWeight="SemiBold" FontSize="12" />
                     <TextBlock Grid.Column="2" Text="Observed" FontWeight="SemiBold" FontSize="12" />
-                    <TextBlock Grid.Column="3" Text="dE" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Grid.Column="3" Text="dE" FontWeight="SemiBold" FontSize="12"
+                               ToolTip.Tip="{StaticResource DeltaEExplanation}" />
                     <TextBlock Grid.Column="4" Text="Status" FontWeight="SemiBold" FontSize="12" />
                   </Grid>
                   <ItemsControl ItemsSource="{Binding LastDetails.Rows}">
