@@ -356,15 +356,21 @@
                 </StackPanel>
               </Border>
 
-              <!-- Tone curve: fitted transform sampled along the gray axis.
-                   Canvas size must match CalibrationDetailsViewModel.CurvePlotSize (220). -->
-              <Border Background="#232323" CornerRadius="4" Padding="12,10"
-                      IsVisible="{Binding LastDetails.HasVisualizations, FallbackValue=False}">
-                <StackPanel Spacing="6">
-                  <TextBlock FontWeight="SemiBold" FontSize="12" Text="Tone curve" />
-                  <TextBlock FontSize="11" Foreground="#999999" TextWrapping="Wrap"
-                             Text="Per-channel output for gray input (0 to 1, left to right). The dashed diagonal is no correction; flat ends indicate clipping." />
-                  <StackPanel Orientation="Horizontal" Spacing="10">
+              <!-- Two plot boxes side by side; equal heights via the shared grid row, plots
+                   anchored to the bottom so differing caption heights do not misalign them.
+                   Star columns: Auto would let the wrapping captions measure unconstrained
+                   and push the second box off screen. -->
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="10"
+                    IsVisible="{Binding LastDetails.HasVisualizations, FallbackValue=False}">
+
+                <!-- Tone curve: fitted transform sampled along the gray axis.
+                     Canvas size must match CalibrationDetailsViewModel.CurvePlotSize (220). -->
+                <Border Grid.Column="0" Background="#232323" CornerRadius="4" Padding="12,10">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" FontSize="12" Text="Tone curve" />
+                    <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="#999999" TextWrapping="Wrap" Margin="0,6,0,6"
+                               Text="Per-channel output for gray input (0 to 1, left to right). The dashed diagonal is no correction; flat ends indicate clipping." />
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom">
                     <Border Background="#1A1A1A" BorderBrush="#484848" BorderThickness="1"
                             Width="222" Height="222">
                       <Canvas Width="220" Height="220">
@@ -416,9 +422,59 @@
                         <TextBlock Text="B" Foreground="#6BA5FF" FontWeight="SemiBold" />
                       </ToggleButton>
                     </StackPanel>
-                  </StackPanel>
-                </StackPanel>
-              </Border>
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+
+                <!-- Vectorscope: Oklab a-b chroma plane, size must match
+                     CalibrationDetailsViewModel.ScopePlotSize (220) -->
+                <Border Grid.Column="1" Background="#232323" CornerRadius="4" Padding="12,10">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" FontWeight="SemiBold" FontSize="12" Text="Color shift" />
+                    <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="#999999" TextWrapping="Wrap" Margin="0,6,0,6"
+                               Text="Each capture's hue and saturation (lightness ignored). The line runs from the captured color to the corrected one; the dot is the target. Center is neutral gray; a common twist around the center means a colorspace mismatch." />
+                    <Border Background="#1A1A1A" BorderBrush="#484848" BorderThickness="1"
+                            Width="222" Height="222" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                      <Panel Width="220" Height="220">
+                        <!-- center crosshair + saturation rings -->
+                        <Line StartPoint="110,0" EndPoint="110,220" Stroke="#333333" StrokeThickness="1" />
+                        <Line StartPoint="0,110" EndPoint="220,110" Stroke="#333333" StrokeThickness="1" />
+                        <Ellipse Width="73" Height="73" Stroke="#333333" StrokeThickness="1"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Ellipse Width="147" Height="147" Stroke="#333333" StrokeThickness="1"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <!-- shift lines, observed to corrected; null Data (e.g. after Reset) is safe -->
+                        <Path Data="{Binding LastDetails.ScopeShifts}" Stroke="#777777" StrokeThickness="1" />
+                        <!-- target dots; diameter must equal 2 * ScopeDotRadius -->
+                        <ItemsControl ItemsSource="{Binding LastDetails.ScopeDots}">
+                          <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                              <Canvas />
+                            </ItemsPanelTemplate>
+                          </ItemsControl.ItemsPanel>
+                          <ItemsControl.Styles>
+                            <!-- items get wrapped in ContentPresenters; Canvas.Left on the
+                                 template root would not position them -->
+                            <Style Selector="ContentPresenter" x:DataType="vm:CalibrationDetailsViewModel+ScopeDot">
+                              <Setter Property="Canvas.Left" Value="{Binding X}" />
+                              <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                            </Style>
+                          </ItemsControl.Styles>
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CalibrationDetailsViewModel+ScopeDot">
+                              <Ellipse Width="6" Height="6" Fill="{Binding Brush}">
+                                <ToolTip.Tip>
+                                  <TextBlock Text="{Binding Tooltip}" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" />
+                                </ToolTip.Tip>
+                              </Ellipse>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </Panel>
+                    </Border>
+                  </DockPanel>
+                </Border>
+              </Grid>
 
               <Border Background="#232323" CornerRadius="4" Padding="12,10">
                 <StackPanel Spacing="4">

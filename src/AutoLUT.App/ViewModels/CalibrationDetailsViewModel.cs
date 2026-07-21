@@ -51,6 +51,32 @@ public sealed class CalibrationDetailsViewModel
     /// </summary>
     public static IList<Point> EmptyPoints { get; } = [];
 
+    /// <summary>Vectorscope plot edge length in pixels; the XAML canvas size must match.</summary>
+    public const double ScopePlotSize = 220;
+
+    // Oklab a/b extent of the plot. The sRGB gamut reaches about |a| 0.28, |b| 0.31 (blue),
+    // so 0.35 keeps every palette color inside the canvas with a small margin.
+    private const float ScopeAbMax = 0.35f;
+
+    private const double ScopeDotRadius = 3;
+
+    /// <summary>
+    /// Shift lines, one segment per capture from observed to corrected chroma. Parsed lazily:
+    /// Geometry.Parse requires the render platform, which does not exist until the app is up -
+    /// eager parsing would make this VM unconstructible in headless contexts. Bindings evaluate
+    /// well after platform init.
+    /// </summary>
+    public Geometry? ScopeShifts => _scopeShiftsData is null ? null : _scopeShifts ??= Geometry.Parse(_scopeShiftsData);
+
+    private readonly string? _scopeShiftsData;
+    private Geometry? _scopeShifts;
+
+    /// <summary>Target dots on the vectorscope, in canvas coordinates (already offset by the dot radius).</summary>
+    public IReadOnlyList<ScopeDot> ScopeDots { get; }
+
+    /// <summary>One vectorscope target marker, colored as the target color.</summary>
+    public sealed record ScopeDot(double X, double Y, IBrush Brush, string Tooltip);
+
     public IList<Point> CurvePointsR { get; }
 
     public IList<Point> CurvePointsG { get; }
@@ -74,7 +100,8 @@ public sealed class CalibrationDetailsViewModel
         IReadOnlyList<string> appliedCorrections, IReadOnlyList<DetailRow> rows,
         IReadOnlyList<ScreenshotInput> inputs,
         IReadOnlyList<SwatchTile> neutralSwatches, IReadOnlyList<SwatchTile> chromaSwatches,
-        IList<Point> curvePointsR, IList<Point> curvePointsG, IList<Point> curvePointsB)
+        IList<Point> curvePointsR, IList<Point> curvePointsG, IList<Point> curvePointsB,
+        IReadOnlyList<ScopeDot> scopeDots, string? scopeShiftsData)
     {
         Error = error;
         Warnings = warnings;
@@ -88,6 +115,8 @@ public sealed class CalibrationDetailsViewModel
         CurvePointsR = curvePointsR;
         CurvePointsG = curvePointsG;
         CurvePointsB = curvePointsB;
+        ScopeDots = scopeDots;
+        _scopeShiftsData = scopeShiftsData;
     }
 
     public static CalibrationDetailsViewModel From(CalibrationResult result, IReadOnlyList<ScreenshotInput> inputs)
@@ -133,12 +162,14 @@ public sealed class CalibrationDetailsViewModel
             .ToList();
 
         var (neutralSwatches, chromaSwatches) = BuildSwatches(result);
+        var (scopeDots, scopeShiftsData) = BuildScope(result);
         return new CalibrationDetailsViewModel(
             result.Error, warnings, fitSummary, result.Corrections, rows, inputs,
             neutralSwatches, chromaSwatches,
             BuildCurvePoints(result.Transform, rgb => rgb.R),
             BuildCurvePoints(result.Transform, rgb => rgb.G),
-            BuildCurvePoints(result.Transform, rgb => rgb.B));
+            BuildCurvePoints(result.Transform, rgb => rgb.B),
+            scopeDots, scopeShiftsData);
     }
 
     private static (IReadOnlyList<SwatchTile> Neutrals, IReadOnlyList<SwatchTile> Chroma) BuildSwatches(
@@ -170,7 +201,17 @@ public sealed class CalibrationDetailsViewModel
                 .ToList());
     }
 
-    private static SwatchTile BuildTile(ScreenshotResult shot, Rgb corrected)
+    private static SwatchTile BuildTile(ScreenshotResult shot, Rgb corrected) =>
+        new(
+            shot.Name,
+            ToBrush(shot.ObservedMean!.Value),
+            ToBrush(corrected),
+            ToBrush(shot.Target!.ToRgb()),
+            shot.IsOutlier ? Brushes.Orange : TileBorder,
+            BuildTooltip(shot, corrected),
+            shot.IsOutlier);
+
+    private static string BuildTooltip(ScreenshotResult shot, Rgb corrected)
     {
         // Line order mirrors the tile's stripes: observed, corrected, target.
         var tooltip = new StringBuilder()
@@ -184,14 +225,43 @@ public sealed class CalibrationDetailsViewModel
             tooltip.AppendLine().Append("outlier (excluded from fit)");
         }
 
-        return new SwatchTile(
-            shot.Name,
-            ToBrush(shot.ObservedMean!.Value),
-            ToBrush(corrected),
-            ToBrush(shot.Target.ToRgb()),
-            shot.IsOutlier ? Brushes.Orange : TileBorder,
-            tooltip.ToString(),
-            shot.IsOutlier);
+        return tooltip.ToString();
+    }
+
+    /// <summary>Projects a color's Oklab chroma (a right, b up, lightness dropped) onto the scope canvas.</summary>
+    private static Point ScopeProject(Rgb srgb)
+    {
+        var lab = Oklab.FromSrgb(srgb);
+        double half = ScopePlotSize / 2;
+        return new Point(
+            half + Math.Clamp(lab.A / ScopeAbMax, -1f, 1f) * half,
+            half - Math.Clamp(lab.B / ScopeAbMax, -1f, 1f) * half);
+    }
+
+    private static (IReadOnlyList<ScopeDot> Dots, string? ShiftsData) BuildScope(CalibrationResult result)
+    {
+        if (result.Transform is not { } transform)
+        {
+            return ([], null);
+        }
+
+        var dots = new List<ScopeDot>();
+        var path = new StringBuilder();
+        foreach (var shot in result.Screenshots.Where(s => s is { Target: not null, ObservedMean: not null }))
+        {
+            var correctedRgb = transform.Apply(shot.ObservedMean!.Value).Clamp01();
+            var observed = ScopeProject(shot.ObservedMean!.Value);
+            var corrected = ScopeProject(correctedRgb);
+            var target = ScopeProject(shot.Target!.ToRgb());
+            // Invariant culture: a comma decimal separator would corrupt the path syntax.
+            path.Append(FormattableString.Invariant(
+                $"M {observed.X:F1},{observed.Y:F1} L {corrected.X:F1},{corrected.Y:F1} "));
+            dots.Add(new ScopeDot(
+                target.X - ScopeDotRadius, target.Y - ScopeDotRadius,
+                ToBrush(shot.Target.ToRgb()), BuildTooltip(shot, correctedRgb)));
+        }
+
+        return dots.Count > 0 ? (dots, path.ToString()) : ([], null);
     }
 
     /// <summary>
