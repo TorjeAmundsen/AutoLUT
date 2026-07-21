@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <!-- Single source for the app version: the desktop assembly, the update checker, and the
          browser loading screen (version.js, generated in AutoLUT.Browser.csproj) all read this. -->
-    <Version>0.13.0</Version>
+    <Version>0.14.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
