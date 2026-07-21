@@ -8,15 +8,14 @@ AutoLUT also runs entirely in your browser (WebAssembly) - nothing to install: *
 
 Same app, same results. Notes for the web version:
 
-- The calibration savestates are downloadable from the page itself (**Download savestates** button).
-- On Firefox/Safari, **Save LUT.png** delivers the file as a regular browser download instead of a save dialog.
-- First load fetches ~10 MB (cached afterwards).
+- The calibration apps or savestates are downloadable from the page itself (**Downloads** button or via the guide).
+- First load fetches ~12 MB (cached afterwards).
 
 # AutoLUT
 
 <img width="960" height="240" alt="autolut" src="https://github.com/user-attachments/assets/982f0f37-fa42-47ba-85a4-d0a3550d3c33" />
 
-AutoLUT generates an OBS-compatible `LUT.png` that color-corrects your Wii capture to match the console's true output colors. Apply it with OBS's built-in **Apply LUT** filter and your stream/recording colors match what the game actually outputs - no manual tweaking of curves or sliders.
+AutoLUT generates an OBS-compatible `LUT.png` that color-corrects your Wii or N64 capture to match the console's true output colors. Apply it with OBS's built-in **Apply LUT** filter and your stream/recording colors match what the game actually outputs - no manual tweaking of curves or sliders.
 
 Calibration works by displaying 39 known colors on your console and screenshotting each one. Because AutoLUT knows exactly which color is being displayed, it can measure precisely how your capture chain distorts colors and compute the correction. Three ways to display the colors:
 
