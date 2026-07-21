@@ -172,11 +172,12 @@ public sealed class CalibrationDetailsViewModel
 
     private static SwatchTile BuildTile(ScreenshotResult shot, Rgb corrected)
     {
+        // Line order mirrors the tile's stripes: observed, corrected, target.
         var tooltip = new StringBuilder()
             .AppendLine(shot.Name)
-            .AppendLine($"target    {shot.Target!.Hex}")
             .AppendLine($"observed  {ToHex(shot.ObservedMean!.Value)}")
             .AppendLine($"corrected {ToHex(corrected)}")
+            .AppendLine($"target    {shot.Target!.Hex}")
             .Append($"dE {(shot.DeltaE is { } deltaE ? deltaE.ToString("F4") : "-")}");
         if (shot.IsOutlier)
         {

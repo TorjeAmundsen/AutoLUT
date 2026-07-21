@@ -8,30 +8,55 @@
 >
 
   <UserControl.Resources>
-    <x:String x:Key="DeltaEExplanation">dE (delta E) is the color difference between the capture AFTER correction by this LUT and its target - it measures how well the correction lands, not how far off the raw capture was. Measured in the Oklab perceptual color space: 0 means identical; below roughly 0.01 the difference is invisible, around 0.02 it is just noticeable side by side, and 1.0 is about the distance from black to white.</x:String>
+    <x:String x:Key="DeltaEExplanation">dE (delta E) is the color difference between the capture AFTER correction by this LUT and its target - it measures how well the correction lands, not how far off the raw capture was. Measured in the Oklab perceptual color space: 0 means identical, below roughly 0.0050 the difference is invisible even in flat colors side by side, around 0.0100 it is noticeable side-by-side, and 1.0 is about the distance from black to white.</x:String>
     <!-- Palette-check tile: captured / corrected / target stacked top to bottom.
          Tiles stretch to fill their UniformGrid cell and stay square: height tracks the
          arranged width, and the three stripes split it via star rows. -->
     <DataTemplate x:Key="SwatchTileTemplate" x:DataType="vm:CalibrationDetailsViewModel+SwatchTile">
-      <!-- Transparent background keeps the whole tile hit-testable - without it the hover
-           gaps expose non-hit-testable pixels, and pointing at them drops :pointerover. -->
-      <Border Classes="swatchTile" Background="Transparent" BorderBrush="{Binding TileBorderBrush}"
+      <Border Background="Transparent" BorderBrush="{Binding TileBorderBrush}"
               BorderThickness="1" CornerRadius="3"
-              Margin="2" ClipToBounds="True" ToolTip.Tip="{Binding Tooltip}"
+              Margin="2" ClipToBounds="True"
               Height="{Binding $self.Bounds.Width}">
-        <!-- Hovering separates the stripes so the three parts read clearly; a colored
-             outline would vanish on same-colored stripes, a gap never does. The selector is
-             anchored to this tile (class + direct child) because :pointerover also sets on
-             every ancestor Border while the pointer is anywhere inside it. -->
+        <!-- Monospace so the padded hex columns line up -->
+        <ToolTip.Tip>
+          <TextBlock Text="{Binding Tooltip}" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" />
+        </ToolTip.Tip>
+        <!-- Hovering a single stripe outlines it and names it. Stripes carry no border at
+             rest - even a transparent border insets the background and reads as a seam -
+             so the colors sit flush against each other; the outline only exists while
+             hovered. The label's drop shadow keeps white text readable on light stripes.
+             The selectors anchor on the stripe class because :pointerover also sets on
+             every ancestor while the pointer is inside it. -->
         <Border.Styles>
-          <Style Selector="Border.swatchTile:pointerover > Grid">
-            <Setter Property="RowSpacing" Value="2" />
+          <Style Selector="Border.stripe">
+            <Setter Property="BorderThickness" Value="0" />
+          </Style>
+          <Style Selector="Border.stripe:pointerover">
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="White" />
+          </Style>
+          <Style Selector="Border.stripe > TextBlock">
+            <Setter Property="IsVisible" Value="False" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Effect" Value="drop-shadow(0 1 4 #FF000000)" />
+          </Style>
+          <Style Selector="Border.stripe:pointerover > TextBlock">
+            <Setter Property="IsVisible" Value="True" />
           </Style>
         </Border.Styles>
         <Grid RowDefinitions="*,*,*">
-          <Rectangle Grid.Row="0" Fill="{Binding ObservedBrush}" />
-          <Rectangle Grid.Row="1" Fill="{Binding CorrectedBrush}" />
-          <Rectangle Grid.Row="2" Fill="{Binding TargetBrush}" />
+          <Border Grid.Row="0" Classes="stripe" Background="{Binding ObservedBrush}">
+            <TextBlock Text="captured" />
+          </Border>
+          <Border Grid.Row="1" Classes="stripe" Background="{Binding CorrectedBrush}">
+            <TextBlock Text="corrected" />
+          </Border>
+          <Border Grid.Row="2" Classes="stripe" Background="{Binding TargetBrush}">
+            <TextBlock Text="target" />
+          </Border>
         </Grid>
       </Border>
     </DataTemplate>
@@ -275,8 +300,20 @@
                   </ItemsControl>
                 </StackPanel>
               </Border>
-              <TextBlock Text="{Binding LastDetails.FitSummary}" TextWrapping="Wrap"
-                         ToolTip.Tip="{StaticResource DeltaEExplanation}" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding LastDetails.FitSummary}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                <!-- Hover-only info chip; not a Button because it triggers nothing -->
+                <Border Background="#3A3A3A" BorderBrush="#565656" BorderThickness="1" CornerRadius="3"
+                        Padding="8,2" Cursor="Help" VerticalAlignment="Center"
+                        ToolTip.Tip="{StaticResource DeltaEExplanation}">
+                  <Border.Styles>
+                    <Style Selector="Border:pointerover">
+                      <Setter Property="Background" Value="#454545" />
+                    </Style>
+                  </Border.Styles>
+                  <TextBlock Text="What is dE?" FontSize="11" Foreground="#C8C8C8" />
+                </Border>
+              </StackPanel>
               <StackPanel Spacing="5">
                 <TextBlock FontWeight="SemiBold" Text="Additional corrections" />
                 <ItemsControl ItemsSource="{Binding LastDetails.AppliedCorrections}"
@@ -389,7 +426,7 @@
                     <TextBlock Grid.Column="0" Text="Capture" FontWeight="SemiBold" FontSize="12" />
                     <TextBlock Grid.Column="1" Text="Target" FontWeight="SemiBold" FontSize="12" />
                     <TextBlock Grid.Column="2" Text="Observed" FontWeight="SemiBold" FontSize="12" />
-                    <TextBlock Grid.Column="3" Text="dE (?)" FontWeight="SemiBold" FontSize="12"
+                    <TextBlock Grid.Column="3" Text="dE" FontWeight="SemiBold" FontSize="12"
                                ToolTip.Tip="{StaticResource DeltaEExplanation}" />
                     <TextBlock Grid.Column="4" Text="Status" FontWeight="SemiBold" FontSize="12" />
                   </Grid>
