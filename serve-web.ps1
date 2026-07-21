@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 # Builds the Release WebAssembly bundle and serves it locally - same content the
-# GitHub Pages deploy produces (including savestates.zip). Requires Python 3.
+# GitHub Pages deploy produces (including the per-version savestate zips). Requires Python 3.
 
 $port = 8080
 $site = "$PSScriptRoot/src/AutoLUT.Browser/bin/Release/net10.0-browser/publish/wwwroot"

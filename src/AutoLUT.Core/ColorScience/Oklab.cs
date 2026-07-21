@@ -2,7 +2,7 @@ namespace AutoLUT.Core.ColorScience;
 
 public readonly record struct Oklab(float L, float A, float B)
 {
-    /// <summary>Converts an sRGB-encoded color (nominal [0,1]) to Oklab. Out-of-range inputs are handled via linear extension of the EOTF and Cbrt's odd extension.</summary>
+    /// <summary>Converts an sRGB-encoded color to Oklab. Inputs are clamped to [0,1] before conversion.</summary>
     public static Oklab FromSrgb(Rgb srgb)
     {
         var c = ColorSpace.SrgbToLinear(srgb.Clamp01());

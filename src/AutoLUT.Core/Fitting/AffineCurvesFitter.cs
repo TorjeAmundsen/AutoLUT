@@ -6,10 +6,11 @@ namespace AutoLUT.Core.Fitting;
 
 /// <summary>
 /// Fits an <see cref="AffineCurvesTransform"/> by alternating a closed-form weighted affine fit with
-/// per-channel monotone curve fits, inside an IRLS loop (Tukey biweight on Oklab residuals) so
-/// outliers have limited influence. The inner least squares minimizes RGB error while robust
-/// weighting and diagnostics use Oklab - a pragmatic tradeoff that avoids a nonlinear solver;
-/// a full Gauss-Newton-in-Oklab fitter can be swapped in via IColorTransformFitter later.
+/// per-channel monotone curve fits, inside an IRLS loop (Tukey biweight on RGB residuals, gated by
+/// an Oklab perceptual floor) so outliers have limited influence. The inner least squares and
+/// outlier decisions work in RGB while quality diagnostics are reported in Oklab - a pragmatic
+/// tradeoff that avoids a nonlinear solver; a full Gauss-Newton-in-Oklab fitter can be swapped in
+/// via IColorTransformFitter later.
 /// </summary>
 public sealed class AffineCurvesFitter : IColorTransformFitter
 {
