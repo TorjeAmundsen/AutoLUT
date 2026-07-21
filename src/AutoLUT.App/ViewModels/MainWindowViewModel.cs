@@ -310,10 +310,16 @@ public partial class MainWindowViewModel : ObservableObject
             await _dialogs.ShowWarningAsync("Crushed shadows detected", crushWarning);
         }
 
-        string warningSuffix = result.Warnings.Count > 0 ? $" Warning: {string.Join(" ", result.Warnings)}" : "";
+        // Remaining warnings also get a modal at generate time; afterwards they stay
+        // reachable via the details button instead of bloating the status bar.
+        if (result.Warnings.Count > 0)
+        {
+            await _dialogs.ShowWarningAsync("Warning", string.Join("\n\n", result.Warnings));
+        }
+
         if (!result.Success)
         {
-            StatusText = (result.Error ?? "Calibration failed.") + warningSuffix;
+            StatusText = result.Error ?? "Calibration failed.";
             return;
         }
 
@@ -326,9 +332,9 @@ public partial class MainWindowViewModel : ObservableObject
         ShowCorrected = true;
         // The guide occupies the preview pane; close it so the corrected preview is visible.
         Help.IsOpen = false;
-        StatusText = (result.Diagnostics is { } d
+        StatusText = result.Diagnostics is { } d
             ? $"Finished - mean ΔE {d.MeanDeltaE:F4}, p95 {d.P95DeltaE:F4}, {d.InlierCount}/{d.TotalCount} inliers."
-            : "Finished") + warningSuffix;
+            : "Finished";
         await UpdatePreviewAsync();
     }
 

@@ -21,6 +21,12 @@ public sealed class CalibrationDetailsViewModel
 
     public bool HasWarnings => Warnings.Count > 0;
 
+    /// <summary>Label for the details button; mentions warnings when there are any.</summary>
+    public string DetailsButtonText => HasWarnings ? "Show details/warnings" : "Show details";
+
+    /// <summary>Hover tooltip for the details button: all warnings, blank line between them.</summary>
+    public string WarningsTooltip => string.Join("\n\n", Warnings);
+
     public string FitSummary { get; }
 
     public IReadOnlyList<string> AppliedCorrections { get; }

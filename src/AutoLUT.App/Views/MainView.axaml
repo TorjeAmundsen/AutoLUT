@@ -261,11 +261,35 @@
               </Flyout>
             </Button.Flyout>
           </Button>
+          <!-- Doubles as the warning surface: with warnings the label says so, the button
+               turns amber, and hovering shows the full warning text. Keeps warnings out
+               of the status bar. -->
           <Button DockPanel.Dock="Right"
-                  Content="Show details"
+                  Content="{Binding LastDetails.DetailsButtonText, FallbackValue='Show details'}"
                   Command="{Binding OpenDetailsCommand}"
                   IsVisible="{Binding LastDetails, Converter={x:Static ObjectConverters.IsNotNull}}"
-                  Margin="8,0,0,0" />
+                  Classes.warnings="{Binding LastDetails.HasWarnings, FallbackValue=False}"
+                  Margin="8,0,0,0">
+            <Button.Styles>
+              <Style Selector="Button.warnings">
+                <Setter Property="ToolTip.Tip">
+                  <Template>
+                    <TextBlock Text="{Binding LastDetails.WarningsTooltip}" TextWrapping="Wrap" MaxWidth="420" />
+                  </Template>
+                </Setter>
+              </Style>
+              <!-- Theme brushes live on the template presenter, so restyle it directly -->
+              <Style Selector="Button.warnings /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="#26FFB020" />
+                <Setter Property="BorderBrush" Value="#FFB020" />
+                <Setter Property="Foreground" Value="#FFC65A" />
+              </Style>
+              <Style Selector="Button.warnings:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                <Setter Property="Background" Value="#40FFB020" />
+                <Setter Property="BorderBrush" Value="#FFC65A" />
+              </Style>
+            </Button.Styles>
+          </Button>
           <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" TextWrapping="Wrap" />
         </DockPanel>
       </Grid>
