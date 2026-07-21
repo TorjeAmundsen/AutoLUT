@@ -47,14 +47,16 @@
             <Setter Property="IsVisible" Value="True" />
           </Style>
         </Border.Styles>
+        <!-- ClipToBounds clips to the rect, not the corner radius, so the top and bottom
+             stripes round their outer corners themselves (outer radius 3 - 1px border = 2) -->
         <Grid RowDefinitions="*,*,*">
-          <Border Grid.Row="0" Classes="stripe" Background="{Binding ObservedBrush}">
+          <Border Grid.Row="0" Classes="stripe" Background="{Binding ObservedBrush}" CornerRadius="2,2,0,0">
             <TextBlock Text="captured" />
           </Border>
           <Border Grid.Row="1" Classes="stripe" Background="{Binding CorrectedBrush}">
             <TextBlock Text="corrected" />
           </Border>
-          <Border Grid.Row="2" Classes="stripe" Background="{Binding TargetBrush}">
+          <Border Grid.Row="2" Classes="stripe" Background="{Binding TargetBrush}" CornerRadius="0,0,2,2">
             <TextBlock Text="target" />
           </Border>
         </Grid>
