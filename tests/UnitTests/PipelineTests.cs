@@ -239,6 +239,65 @@ public class PipelineTests
     }
 
     [Test]
+    public async Task EndToEnd_RealCeilingClipFeed_KeepsEveryCaptureInlier()
+    {
+        // Arrange: center-region means from a real field feed (offset +16, gain ~1.036, inputs
+        // 224-255 crushed into capture codes 249-255 - white lands ~26/255 below the ramp's
+        // extrapolation). Everything above the knee is a chain limitation the compression warning
+        // already explains, so no capture may be flagged as an outlier: an outlier reads as "your
+        // capture is bad, re-take" when re-taking cannot help. Without the saturated-top anchors
+        // the shoulder compromise leaves #ffff80 (R/G at the same capture code as #ffff00's)
+        // excluded; with them all 39 stay inliers.
+        string[] observed =
+        [
+            "101010", "323232", "535353", "747474", "959595", "b7b7b7", "d7d7d7", "f9f9f9",
+            "ffffff", "121191", "1111f9", "149415", "149494", "1494fb", "15fe17", "15fe96",
+            "16fefd", "921212", "941292", "9213fa", "959516", "9595fb", "96fe18", "97fe98",
+            "97fffe", "fa1214", "fa1192", "fa12fa", "fc9416", "fd9696", "fd96fd", "fefe19",
+            "fefe99", "d45354", "57d657", "5354d2", "d7d759", "d455d4", "56d6d6",
+        ];
+        var shots = observed
+            .Select((h, i) => new ScreenshotInput($"{CalibrationPalette.Colors[i].Hex}.png",
+                Png(SolidCaptures.CaptureColor(new Rgb(
+                    Convert.ToInt32(h[..2], 16) / 255f,
+                    Convert.ToInt32(h[2..4], 16) / 255f,
+                    Convert.ToInt32(h[4..], 16) / 255f), 2, 2100 + i))))
+            .ToList();
+
+        // Act
+        var result = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Success, Is.True, result.Error);
+            Assert.That(result.Warnings, Has.Some.Contains("compresses"));
+            Assert.That(result.Corrections, Has.Some.Contains("Highlight compression"));
+            foreach (var shot in result.Screenshots)
+            {
+                Assert.That(shot.Error, Is.Null, $"{shot.Name}: {shot.Error}");
+                Assert.That(shot.IsOutlier, Is.False, $"{shot.Name} must stay an inlier.");
+            }
+        }
+
+        // The neutral ramp must still correct cleanly despite the extra bright anchors.
+        var applier = new ObsLutApplier(result.LutImage!);
+        var gray224 = SolidCaptures.CaptureColor(new Rgb(0xf9 / 255f, 0xf9 / 255f, 0xf9 / 255f), 2, 2200);
+        var correctedGray224 = SolidColorAnalyzer.Analyze(applier.Apply(gray224)).Mean;
+        var midGray = SolidCaptures.CaptureColor(new Rgb(0x95 / 255f, 0x95 / 255f, 0x95 / 255f), 2, 2300);
+        var correctedMidGray = SolidColorAnalyzer.Analyze(applier.Apply(midGray)).Mean;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(correctedGray224.R, Is.EqualTo(224f / 255f).Within(5f / 255f), "Corrected gray224 R off target.");
+            Assert.That(correctedGray224.G, Is.EqualTo(224f / 255f).Within(5f / 255f), "Corrected gray224 G off target.");
+            Assert.That(correctedGray224.B, Is.EqualTo(224f / 255f).Within(5f / 255f), "Corrected gray224 B off target.");
+            Assert.That(correctedMidGray.R, Is.EqualTo(128f / 255f).Within(2f / 255f), "Corrected mid gray R off target.");
+            Assert.That(correctedMidGray.G, Is.EqualTo(128f / 255f).Within(2f / 255f), "Corrected mid gray G off target.");
+            Assert.That(correctedMidGray.B, Is.EqualTo(128f / 255f).Within(2f / 255f), "Corrected mid gray B off target.");
+        }
+    }
+
+    [Test]
     public async Task Run_TintedGrayCapture_FailsInsteadOfShipping()
     {
         // Arrange: one gray capture is identifiable but tinted (+25/255 red on the mid gray).

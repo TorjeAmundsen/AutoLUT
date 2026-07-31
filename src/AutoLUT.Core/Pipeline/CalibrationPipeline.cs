@@ -29,7 +29,11 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
     // crushed feeds and the degradation-bounds simulation: black lands within ~1/255 of 0, gray32
     // within ~1/255 of 32, all samples under the outlier cutoff. Gated because unconditional
     // anchoring costs ~2-3/255 shadow accuracy on gamma-curved feeds.
-    private const int CrushCurveKnots = 21;
+    // 29 knots (up from the originally validated 21): a real ceiling-clip chain (offset +16,
+    // gain ~1.04) squeezed inputs 224-255 into the 6 capture codes 249-255; turning the inverse
+    // curve inside a window that narrow needs a knot pitch near the window width, and at 21
+    // knots (12.75 pitch) corrected gray224 stayed a step too bright.
+    private const int CrushCurveKnots = 29;
     private const double CrushCurveSmoothness = 0.003;
     private const double BlackAnchorWeight = 20.0;
     private const double Gray32AnchorWeight = 10.0;
@@ -43,8 +47,27 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
     // robust scale enough to reject three mid-dark grays. 10/10 keeps all 39 samples inliers
     // (mean dE 0.0043, corrected white ~252) - validated against the real feed and the
     // degradation-bounds simulation.
+    // The saturated primaries/secondaries (all nonzero channels at 255) get their own, weaker
+    // anchor: their clipped channels land in the same few capture codes as white, and with only
+    // the two neutral anchors pinning that region the curve compromise leaves near-top mixed
+    // colors (#ffff80's R/G at the same capture value as #ffff00's) a step short - excluded as
+    // outliers for a chain limitation the compression warning already explains, which reads to
+    // the user as a capture problem, "re-take your captures" advice that cannot help. Anchoring
+    // the six tops keeps every capture an inlier on the real ceiling-clip feed. The weight is
+    // deliberately BELOW the neutral anchors': anchoring is per-sample, so a top's near-zero
+    // channels (#ff0000's G/B) carry the same multiplier, and at 10x their pull on the dark end
+    // of the curves tilts the mid grays enough to reject #a0a0a0 on the real feed. 6x is the
+    // validated point: enough to pin the shoulder (and stay above the fitter's trusted-weight
+    // floor of 5 after the noise-based base weight), weak enough to leave the ramp alone.
     private const double WhiteAnchorWeight = 10.0;
     private const double Gray224AnchorWeight = 10.0;
+    private const double SaturatedTopAnchorWeight = 6.0;
+
+    /// <summary>Saturated primaries/secondaries: every channel commanded at 0 or 255 (and not a
+    /// neutral, so at least one channel is at 255). Their 255 channels ride the same highlight
+    /// shoulder as white.</summary>
+    private static bool IsSaturatedTop(PaletteColor color) =>
+        !color.IsNeutral && color.R is 0 or 255 && color.G is 0 or 255 && color.B is 0 or 255;
 
     // Max-minus-min channel spread (in 1/255 units) allowed on a corrected gray capture before
     // the fit is declared gray-tinting. RGB spread rather than Oklab chroma: Oklab's cube-root
@@ -229,8 +252,8 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         {
             corrections.Add(
                 $"Highlight compression compensation: fitting a finer {CrushCurveKnots}-knot tone curve and "
-                + $"anchoring white ({WhiteAnchorWeight}x weight) and gray 224 ({Gray224AnchorWeight}x) so the "
-                + "curve shoulder follows the compressed highlights.");
+                + $"anchoring white and the saturated primaries/secondaries ({WhiteAnchorWeight}x weight) and "
+                + $"gray 224 ({Gray224AnchorWeight}x) so the curve shoulder follows the compressed highlights.");
         }
 
         var correspondences = new List<ColorCorrespondence>(identified);
@@ -255,6 +278,10 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
             else if (highlightsCompressed && target is { IsNeutral: true, R: 255 })
             {
                 weight *= WhiteAnchorWeight;
+            }
+            else if (highlightsCompressed && IsSaturatedTop(target))
+            {
+                weight *= SaturatedTopAnchorWeight;
             }
             else if (highlightsCompressed && target is { IsNeutral: true, R: 224 })
             {

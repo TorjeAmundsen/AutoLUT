@@ -60,7 +60,7 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
                 rgbResiduals[i] = RgbDistance(corrected, samples[i].Reference);
             }
 
-            UpdateRobustWeights(rgbResiduals, oklabResiduals, robust);
+            UpdateRobustWeights(samples, rgbResiduals, oklabResiduals, robust);
         }
 
         return new FitResult(transform, BuildDiagnostics(oklabResiduals, robust));
@@ -202,7 +202,15 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
         return new MonotoneCurve(values);
     }
 
-    private static void UpdateRobustWeights(float[] rgbResiduals, float[] oklabResiduals, double[] robust)
+    /// <summary>Sample weight above which a correspondence counts as an explicit anchor. Anchors
+    /// exist precisely because the robust loop would otherwise reject them before the curve
+    /// learns the feature they pin (crush toe, knee shoulder), so they are exempt from Tukey
+    /// rejection: their residuals still shape the fit at full weight every iteration. Base
+    /// per-sample weights are at most 1; pipeline anchors multiply by 10-20.</summary>
+    private const double TrustedWeight = 5.0;
+
+    private static void UpdateRobustWeights(
+        IReadOnlyList<ColorCorrespondence> samples, float[] rgbResiduals, float[] oklabResiduals, double[] robust)
     {
         var sorted = (float[])rgbResiduals.Clone();
         Array.Sort(sorted);
@@ -227,7 +235,7 @@ public sealed class AffineCurvesFitter : IColorTransformFitter
         double cutoff = Math.Max(4.685 * 1.4826 * mad + median, minimumCutoff);
         for (int i = 0; i < rgbResiduals.Length; i++)
         {
-            if (oklabResiduals[i] < perceptualFloor)
+            if (oklabResiduals[i] < perceptualFloor || samples[i].Weight >= TrustedWeight)
             {
                 robust[i] = 1;
                 continue;
