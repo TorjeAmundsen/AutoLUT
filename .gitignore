@@ -17,6 +17,9 @@ coverage*.xml
 # N64 homebrew build output
 n64/*.z64
 
+# Local capture-chain diagnostic homebrew (not part of the product)
+wii-chaintest/
+
 # IDE
 .vs/
 .idea/
