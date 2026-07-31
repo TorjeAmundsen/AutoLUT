@@ -48,9 +48,9 @@ jobs:
           mkdir -p hbc/apps/autolut-palette
           cp wii/boot.dol wii/meta.xml hbc/apps/autolut-palette/
           cd hbc
-          zip -r "../$SITE/AutoLUT-Palette.zip" apps
+          zip -r "../$SITE/AutoLUT-Palette-Wii.zip" apps
           cd ..
-          cp n64/autolut-palette.z64 "$SITE/"
+          cp n64/autolut-palette.z64 "$SITE/AutoLUT-Palette-N64.z64"
 
       - uses: actions/upload-pages-artifact@v5
         with:

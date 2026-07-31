@@ -32,7 +32,7 @@ if (Test-Path "$PSScriptRoot/wii/boot.dol") {
     Copy-Item "$PSScriptRoot/wii/boot.dol", "$PSScriptRoot/wii/meta.xml" -Destination $hbcApp
     Compress-Archive `
         -Path "$PSScriptRoot/build/serve-web-hbc/apps" `
-        -DestinationPath "$site/AutoLUT-Palette.zip" `
+        -DestinationPath "$site/AutoLUT-Palette-Wii.zip" `
         -Force
 } else {
     Write-Host "Skipping AutoLUT Palette zip (wii/boot.dol not built; run ./build.ps1 --wii first)"
@@ -40,7 +40,7 @@ if (Test-Path "$PSScriptRoot/wii/boot.dol") {
 
 if (Test-Path "$PSScriptRoot/n64/autolut-palette.z64") {
     Write-Host "Bundling AutoLUT Palette N64 ROM..."
-    Copy-Item "$PSScriptRoot/n64/autolut-palette.z64" -Destination "$site/autolut-palette.z64" -Force
+    Copy-Item "$PSScriptRoot/n64/autolut-palette.z64" -Destination "$site/AutoLUT-Palette-N64.z64" -Force
 } else {
     Write-Host "Skipping AutoLUT Palette N64 ROM (n64/autolut-palette.z64 not built; run ./build.ps1 --n64 first)"
 }

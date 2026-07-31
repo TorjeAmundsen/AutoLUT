@@ -110,7 +110,7 @@ public partial class MainView : UserControl
             if (App.BaseUri is { } baseUri
                 && TopLevel.GetTopLevel(this) is { } topLevel)
             {
-                await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, "AutoLUT-Palette.zip"));
+                await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, "AutoLUT-Palette-Wii.zip"));
             }
         }
         catch
@@ -127,7 +127,7 @@ public partial class MainView : UserControl
             if (App.BaseUri is { } baseUri
                 && TopLevel.GetTopLevel(this) is { } topLevel)
             {
-                await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, "autolut-palette.z64"));
+                await topLevel.Launcher.LaunchUriAsync(new Uri(baseUri, "AutoLUT-Palette-N64.z64"));
             }
         }
         catch

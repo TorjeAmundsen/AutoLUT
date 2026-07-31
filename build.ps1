@@ -152,7 +152,7 @@ function BuildWii() {
     New-Item -ItemType Directory -Path $appFolder -Force | Out-Null
     Copy-Item "$PSScriptRoot/wii/boot.dol", "$PSScriptRoot/wii/meta.xml" -Destination $appFolder
 
-    $zipName = "$PSScriptRoot/build/AutoLUT-Palette-$appVersion.zip"
+    $zipName = "$PSScriptRoot/build/AutoLUT-Palette-Wii-$appVersion.zip"
     if (Test-Path $zipName) { Remove-Item $zipName }
     Compress-Archive -Path "$PSScriptRoot/build/wii-hbc/apps" -DestinationPath $zipName
     Write-Host "  Zipped: $zipName"
@@ -173,7 +173,7 @@ function BuildN64() {
         exit $LASTEXITCODE
     }
 
-    $romName = "$PSScriptRoot/build/AutoLUT-Palette-$appVersion.z64"
+    $romName = "$PSScriptRoot/build/AutoLUT-Palette-N64-$appVersion.z64"
     Copy-Item "$PSScriptRoot/n64/autolut-palette.z64" -Destination $romName -Force
     Write-Host "  Output: $romName"
 }

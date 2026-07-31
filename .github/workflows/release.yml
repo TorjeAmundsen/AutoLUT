@@ -105,12 +105,12 @@ jobs:
         run: sh n64/build.sh
 
       - name: Version ROM filename
-        run: cp n64/autolut-palette.z64 "AutoLUT-Palette-${{ github.ref_name }}.z64"
+        run: cp n64/autolut-palette.z64 "AutoLUT-Palette-N64-${{ github.ref_name }}.z64"
 
       - uses: actions/upload-artifact@v7
         with:
           name: n64-rom
-          path: AutoLUT-Palette-*.z64
+          path: AutoLUT-Palette-N64-*.z64
           if-no-files-found: error
 
   release:
@@ -127,7 +127,7 @@ jobs:
       - name: Zip Wii HBC package
         run: |
           cd artifacts
-          zip -r "AutoLUT-Palette-${{ github.ref_name }}.zip" apps
+          zip -r "AutoLUT-Palette-Wii-${{ github.ref_name }}.zip" apps
           rm -rf apps
 
       - uses: softprops/action-gh-release@v3

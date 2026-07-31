@@ -19,8 +19,8 @@ AutoLUT generates an OBS-compatible `LUT.png` that color-corrects your Wii or N6
 
 Calibration works by displaying 39 known colors on your console and screenshotting each one. Because AutoLUT knows exactly which color is being displayed, it can measure precisely how your capture chain distorts colors and compute the correction. Three ways to display the colors:
 
-- **AutoLUT Palette** (Wii Homebrew Channel): a homebrew app that displays the colors fullscreen - no game required. Download `AutoLUT-Palette-<version>.zip` from [releases](/../../releases/latest) and extract it to the root of your SD card.
-- **AutoLUT Palette** (N64 with a flashcart): a [libdragon](https://libdragon.dev) ROM that displays the colors fullscreen with exact 8-bit output (32-bit framebuffer, no dithering or VI filtering - none of the RGBA5551 quantization a game's renderer goes through). Download `AutoLUT-Palette-<version>.z64` from [releases](/../../releases/latest) and boot it from your flashcart.
+- **AutoLUT Palette** (Wii Homebrew Channel): a homebrew app that displays the colors fullscreen - no game required. Download `AutoLUT-Palette-Wii-<version>.zip` from [releases](/../../releases/latest) and extract it to the root of your SD card.
+- **AutoLUT Palette** (N64 with a flashcart): a [libdragon](https://libdragon.dev) ROM that displays the colors fullscreen with exact 8-bit output (32-bit framebuffer, no dithering or VI filtering - none of the RGBA5551 quantization a game's renderer goes through). Download `AutoLUT-Palette-N64-<version>.z64` from [releases](/../../releases/latest) and boot it from your flashcart.
 - **gz savestates** (Ocarina of Time on N64 or Wii VC): [gz](https://github.com/glankk/gz) savestates that fill the entire screen with each color.
 
 ## How to Use
@@ -30,8 +30,8 @@ Calibration works by displaying 39 known colors on your console and screenshotti
 > Strongly recommended: bind a hotkey to **Screenshot Selected Source** (OBS Settings → Hotkeys) and keep your capture source selected - 39 screenshots through the right-click menu is a good way to lose your mind.
 
 1. Get the calibration colors onto your console:
-   - **AutoLUT Palette (Wii)**: extract `AutoLUT-Palette-<version>.zip` from [releases](/../../releases/latest) to the root of your SD card and launch it from the Homebrew Channel.
-   - **AutoLUT Palette (N64)**: put `AutoLUT-Palette-<version>.z64` from [releases](/../../releases/latest) on your flashcart's SD card and boot it.
+   - **AutoLUT Palette (Wii)**: extract `AutoLUT-Palette-Wii-<version>.zip` from [releases](/../../releases/latest) to the root of your SD card and launch it from the Homebrew Channel.
+   - **AutoLUT Palette (N64)**: put `AutoLUT-Palette-N64-<version>.z64` from [releases](/../../releases/latest) on your flashcart's SD card and boot it.
    - **gz**: the savestates are bundled in the `savestates/` folder next to the executable (also downloadable as a separate zip from releases). Copy the folder matching your game version - `lut_gzs_1.0` or `lut_gzs_1.2` - to your SD card. The savestates require [gz](https://github.com/glankk/gz) **0.3.7 or newer**.
 2. Display each color and screenshot it. With gz, load each savestate; with AutoLUT Palette, step through the colors with LEFT/RIGHT (A also advances, HOME/Start exits). There are 39 colors; capture them in any order with any filenames - AutoLUT detects which color each screenshot shows automatically. The game HUD or the palette app's corner label is fine, but keep the center of the screen clear: no watches or other overlays.
 3. Open AutoLUT, click **Load images...** and select all your screenshots.
