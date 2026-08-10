@@ -97,9 +97,10 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
-        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8" Margin="12,0,12,12">
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8" Margin="12,0,12,12">
           <Button Grid.Column="0" Content="Generate LUT" Command="{Binding GenerateCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
           <Button Grid.Column="1" Content="Save LUT.png" Command="{Binding SaveLutCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          <Button Grid.Row="1" Grid.ColumnSpan="2" Content="Fix existing AutoSplit images" Command="{Binding OpenFixImagesCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
         </Grid>
       </Grid>
 
@@ -529,6 +530,64 @@
               </Border>
             </StackPanel>
           </ScrollViewer>
+        </DockPanel>
+      </Border>
+    </Border>
+
+    <!-- Fix AutoSplit images overlay: applies a LUT to existing AutoSplit reference images
+         so they keep matching the corrected capture. -->
+    <Border Background="#B0000000" IsVisible="{Binding FixImages.IsOpen}" Padding="40,32">
+      <Border Background="#2C2C2C" BorderBrush="#565656" BorderThickness="1" CornerRadius="4" MaxWidth="520" Padding="24,20" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="Fix existing AutoSplit images" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,4" />
+          <TextBlock DockPanel.Dock="Top" FontSize="12" Foreground="#C8C8C8" TextWrapping="Wrap" Margin="0,0,0,12"
+                     Text="Applies the LUT to your AutoSplit reference images so they keep matching the corrected capture, exactly as OBS renders it. The results are saved as a zip; the original files are not modified." />
+
+          <DockPanel DockPanel.Dock="Bottom" LastChildFill="True" Margin="0,12,0,0">
+            <Button DockPanel.Dock="Left" Content="Apply LUT to images..." Command="{Binding FixImages.ApplyCommand}" />
+            <Button DockPanel.Dock="Right" Content="Close" MinWidth="72" HorizontalContentAlignment="Center" Command="{Binding FixImages.CloseCommand}" />
+            <TextBlock Text="{Binding FixImages.Feedback}" Foreground="#999999" FontSize="12" VerticalAlignment="Center" Margin="12,0,8,0" TextWrapping="Wrap" />
+          </DockPanel>
+
+          <StackPanel Spacing="10">
+            <TextBlock Text="1. Choose the LUT" FontWeight="SemiBold" FontSize="12" />
+            <RadioButton GroupName="FixLutSource" Content="Use the LUT generated in this session"
+                         IsChecked="{Binding FixImages.UseGeneratedLut}"
+                         IsEnabled="{Binding FixImages.HasGeneratedLut}" />
+            <RadioButton GroupName="FixLutSource" IsChecked="{Binding !FixImages.UseGeneratedLut}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Load LUT PNG..." Command="{Binding FixImages.LoadCustomLutCommand}" />
+                <TextBlock Text="{Binding FixImages.CustomLutName, TargetNullValue='No file loaded'}"
+                           Foreground="#999999" VerticalAlignment="Center" />
+              </StackPanel>
+            </RadioButton>
+
+            <TextBlock Text="2. Reverse a previous LUT (optional)" FontWeight="SemiBold" FontSize="12" Margin="0,6,0,0" />
+            <TextBlock FontSize="11" Foreground="#999999" TextWrapping="Wrap"
+                       Text="If a LUT filter was already active in OBS when you took these images, load it here. Its effect is reversed (best effort) before the new LUT is applied. Colors the old LUT clipped cannot be fully recovered." />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="Load previous LUT PNG..." Command="{Binding FixImages.LoadOldLutCommand}" />
+              <TextBlock Text="{Binding FixImages.OldLutName, TargetNullValue='None'}"
+                         Foreground="#999999" VerticalAlignment="Center" />
+              <Button Content="Remove" Command="{Binding FixImages.ClearOldLutCommand}"
+                      IsVisible="{Binding FixImages.HasOldLut}" />
+            </StackPanel>
+
+            <TextBlock Text="3. Choose the images" FontWeight="SemiBold" FontSize="12" Margin="0,6,0,0" />
+            <Button Content="Select images..." Command="{Binding FixImages.SelectImagesCommand}" HorizontalAlignment="Left" />
+            <Border Background="#232323" CornerRadius="4" Padding="8" MaxHeight="180"
+                    IsVisible="{Binding FixImages.HasImages}">
+              <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding FixImages.Images}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FixImagesViewModel+FixImageItem">
+                      <TextBlock Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Border>
+          </StackPanel>
         </DockPanel>
       </Border>
     </Border>

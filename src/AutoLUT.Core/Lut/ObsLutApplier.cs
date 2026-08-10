@@ -81,11 +81,36 @@ public sealed class ObsLutApplier
     }
 
     /// <summary>Trilinear sample in linear light; returns linear RGB.</summary>
-    private (float R, float G, float B) Sample(byte r, byte g, byte b)
-    {
-        int r0 = _index0[r], g0 = _index0[g], b0 = _index0[b];
-        float fr = _fraction[r], fg = _fraction[g], fb = _fraction[b];
+    private (float R, float G, float B) Sample(byte r, byte g, byte b) =>
+        SampleLattice(_index0[r], _index0[g], _index0[b], _fraction[r], _fraction[g], _fraction[b]);
 
+    /// <summary>
+    /// Applies the LUT at continuous sRGB-encoded coordinates and encodes to bytes, matching
+    /// Apply's output path. Lets callers compose transforms in float and quantize only once.
+    /// </summary>
+    public (byte R, byte G, byte B) ApplyContinuous(float r, float g, float b)
+    {
+        var (linearR, linearG, linearB) = SampleContinuous(r, g, b);
+        return (EncodeByte(linearR), EncodeByte(linearG), EncodeByte(linearB));
+    }
+
+    /// <summary>
+    /// Trilinear sample at continuous sRGB-encoded coordinates in [0,1]; returns linear RGB.
+    /// Same lattice math as the byte path, for callers that need sub-byte precision (LUT inversion).
+    /// </summary>
+    public (float R, float G, float B) SampleContinuous(float r, float g, float b)
+    {
+        float cr = Math.Clamp(r, 0f, 1f) * 63f;
+        float cg = Math.Clamp(g, 0f, 1f) * 63f;
+        float cb = Math.Clamp(b, 0f, 1f) * 63f;
+        int r0 = Math.Min((int)cr, Size - 2);
+        int g0 = Math.Min((int)cg, Size - 2);
+        int b0 = Math.Min((int)cb, Size - 2);
+        return SampleLattice(r0, g0, b0, cr - r0, cg - g0, cb - b0);
+    }
+
+    private (float R, float G, float B) SampleLattice(int r0, int g0, int b0, float fr, float fg, float fb)
+    {
         float outR = 0f, outG = 0f, outB = 0f;
         for (int db = 0; db <= 1; db++)
         {

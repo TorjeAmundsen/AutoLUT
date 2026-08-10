@@ -17,11 +17,14 @@ public sealed class FilePickerService : IFilePickerService
     private IStorageProvider StorageProvider =>
         (_topLevel() ?? throw new InvalidOperationException("View is not attached yet.")).StorageProvider;
 
-    public async Task<IReadOnlyList<(string Name, byte[] Data)>> PickPngScreenshotsAsync()
+    public Task<IReadOnlyList<(string Name, byte[] Data)>> PickPngScreenshotsAsync() =>
+        PickPngImagesAsync("Select calibration screenshots");
+
+    public async Task<IReadOnlyList<(string Name, byte[] Data)>> PickPngImagesAsync(string title)
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Select calibration screenshots",
+            Title = title,
             AllowMultiple = true,
             FileTypeFilter = [FilePickerFileTypes.ImagePng],
         });
@@ -38,6 +41,26 @@ public sealed class FilePickerService : IFilePickerService
         return result;
     }
 
+    public async Task<(string Name, byte[] Data)?> PickSinglePngAsync(string title)
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+            FileTypeFilter = [FilePickerFileTypes.ImagePng],
+        });
+
+        if (files.Count == 0)
+        {
+            return null;
+        }
+
+        await using var stream = await files[0].OpenReadAsync();
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory);
+        return (files[0].Name, memory.ToArray());
+    }
+
     public async Task<Stream?> CreateSaveFileAsync(string suggestedName)
     {
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -51,11 +74,11 @@ public sealed class FilePickerService : IFilePickerService
         return file is null ? null : await file.OpenWriteAsync();
     }
 
-    public async Task<Stream?> CreateSaveZipAsync(string suggestedName)
+    public async Task<Stream?> CreateSaveZipAsync(string suggestedName, string dialogTitle)
     {
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Save debug report",
+            Title = dialogTitle,
             SuggestedFileName = suggestedName,
             DefaultExtension = "zip",
             FileTypeChoices = [new FilePickerFileType("ZIP archive") { Patterns = ["*.zip"], MimeTypes = ["application/zip"] }],

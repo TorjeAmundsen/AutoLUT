@@ -27,6 +27,52 @@ public class ImageCodecTests
     }
 
     [Test]
+    public void EncodeDecode_WithAlpha_RoundTripsRgbAndAlphaExactly()
+    {
+        // Arrange
+        var codec = new SkiaImageCodec();
+        var original = TestImages.Random(33, 17, seed: 7);
+        var alpha = new byte[33 * 17];
+        new Random(8).NextBytes(alpha);
+        alpha[0] = 0;    // fully transparent (AutoSplit mask region)
+        alpha[1] = 255;  // fully opaque
+
+        // Act
+        using var stream = new MemoryStream();
+        codec.EncodePng(original, alpha, stream);
+        stream.Position = 0;
+        var (decoded, decodedAlpha) = codec.DecodeWithAlpha(stream);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(decoded.Pixels, Is.EqualTo(original.Pixels));
+            Assert.That(decodedAlpha, Is.EqualTo(alpha));
+        }
+    }
+
+    [Test]
+    public void DecodeWithAlpha_OpaqueImage_ReturnsNullAlpha()
+    {
+        // Arrange
+        var codec = new SkiaImageCodec();
+        var original = TestImages.Random(9, 5, seed: 3);
+
+        // Act
+        using var stream = new MemoryStream();
+        codec.EncodePng(original, null, stream);
+        stream.Position = 0;
+        var (decoded, decodedAlpha) = codec.DecodeWithAlpha(stream);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(decoded.Pixels, Is.EqualTo(original.Pixels));
+            Assert.That(decodedAlpha, Is.Null);
+        }
+    }
+
+    [Test]
     public void Decode_RejectsGarbage()
     {
         // Arrange

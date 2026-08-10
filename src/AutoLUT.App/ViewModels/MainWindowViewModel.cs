@@ -56,6 +56,12 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>Step-through "How to use" guide shown in place of the preview pane.</summary>
     public HelpWizardViewModel Help { get; } = new();
 
+    /// <summary>Overlay for applying a LUT to existing AutoSplit reference images.</summary>
+    public FixImagesViewModel FixImages { get; }
+
+    [RelayCommand]
+    private void OpenFixImages() => FixImages.Open(_lutApplier);
+
     // Starting the guide clears any loaded work so the user follows it from a clean slate.
     [RelayCommand]
     private void ToggleHelp()
@@ -119,7 +125,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            var stream = await _files.CreateSaveZipAsync("autolut-debug.zip");
+            var stream = await _files.CreateSaveZipAsync("autolut-debug.zip", "Save debug report");
             if (stream is null)
             {
                 return;
@@ -167,6 +173,7 @@ public partial class MainWindowViewModel : ObservableObject
         _files = files;
         _dialogs = dialogs;
         _topLevel = topLevel;
+        FixImages = new FixImagesViewModel(codec, files);
     }
 
     partial void OnSelectedScreenshotChanged(ScreenshotItemViewModel? value) => _ = UpdatePreviewAsync();
@@ -232,6 +239,7 @@ public partial class MainWindowViewModel : ObservableObject
         StatusText = "Capture the 39 calibration colors, then add the screenshots here.";
         LastDetails = null;
         IsDetailsOpen = false;
+        FixImages.IsOpen = false;
         GenerateCommand.NotifyCanExecuteChanged();
         ResetCommand.NotifyCanExecuteChanged();
     }
