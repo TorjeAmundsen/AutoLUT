@@ -17,25 +17,13 @@ public sealed class FilePickerService : IFilePickerService
     private IStorageProvider StorageProvider =>
         (_topLevel() ?? throw new InvalidOperationException("View is not attached yet.")).StorageProvider;
 
-    public Task<IReadOnlyList<(string Name, byte[] Data)>> PickPngScreenshotsAsync() =>
-        PickPngImagesAsync("Select calibration screenshots");
-
     public async Task<IReadOnlyList<(string Name, byte[] Data)>> PickPngImagesAsync(string title)
     {
-        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
-        {
-            Title = title,
-            AllowMultiple = true,
-            FileTypeFilter = [FilePickerFileTypes.ImagePng],
-        });
-
+        var files = await OpenPngPickerAsync(title, allowMultiple: true);
         var result = new List<(string, byte[])>(files.Count);
         foreach (var file in files)
         {
-            await using var stream = await file.OpenReadAsync();
-            using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory);
-            result.Add((file.Name, memory.ToArray()));
+            result.Add(await ReadFileAsync(file));
         }
 
         return result;
@@ -43,22 +31,24 @@ public sealed class FilePickerService : IFilePickerService
 
     public async Task<(string Name, byte[] Data)?> PickSinglePngAsync(string title)
     {
-        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        var files = await OpenPngPickerAsync(title, allowMultiple: false);
+        return files.Count == 0 ? null : await ReadFileAsync(files[0]);
+    }
+
+    private async Task<IReadOnlyList<IStorageFile>> OpenPngPickerAsync(string title, bool allowMultiple) =>
+        await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = title,
-            AllowMultiple = false,
+            AllowMultiple = allowMultiple,
             FileTypeFilter = [FilePickerFileTypes.ImagePng],
         });
 
-        if (files.Count == 0)
-        {
-            return null;
-        }
-
-        await using var stream = await files[0].OpenReadAsync();
+    private static async Task<(string Name, byte[] Data)> ReadFileAsync(IStorageFile file)
+    {
+        await using var stream = await file.OpenReadAsync();
         using var memory = new MemoryStream();
         await stream.CopyToAsync(memory);
-        return (files[0].Name, memory.ToArray());
+        return (file.Name, memory.ToArray());
     }
 
     public async Task<Stream?> CreateSaveFileAsync(string suggestedName)

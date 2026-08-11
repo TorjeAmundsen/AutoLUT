@@ -79,7 +79,6 @@ public sealed class ObsLutInverter
         // Work in sRGB-encoded [0,1] coordinates; residuals in output byte units so the
         // tolerance maps directly onto the final rounding step.
         Span<float> input = [targetR / 255f, targetG / 255f, targetB / 255f];
-        Span<float> bestInput = [input[0], input[1], input[2]];
         Span<float> residual = stackalloc float[3];
         Span<float> candidate = stackalloc float[3];
         Span<float> candidateResidual = stackalloc float[3];
@@ -122,7 +121,6 @@ public sealed class ObsLutInverter
                 {
                     candidate.CopyTo(input);
                     candidateResidual.CopyTo(residual);
-                    candidate.CopyTo(bestInput);
                     bestError = error;
                     improved = true;
                     break;
@@ -135,7 +133,8 @@ public sealed class ObsLutInverter
             }
         }
 
-        var result = (bestInput[0], bestInput[1], bestInput[2]);
+        // Input only ever moves on improvement, so it always holds the best solution found.
+        var result = (input[0], input[1], input[2]);
         _cache[key] = result;
         return result;
     }

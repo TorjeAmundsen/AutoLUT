@@ -64,6 +64,16 @@ Set **Crop/Pad** per game with the game running, since games render at different
 
 Set **Scaling/Aspect Ratio** to the 4:3 resolution that fills your canvas vertically - 1440x1080 on a 1920x1080 canvas - not just "4:3", with scale filtering on **Area**. Point also works for a really pixelated/harsh look, at the cost of uneven pixel row/column widths; never use the other scale filtering options here.
 
+## Fixing an existing AutoSplit setup
+
+[AutoSplit](https://github.com/Toufool/AutoSplit) compares your capture against reference images, so applying a new LUT breaks existing splits. Instead of re-taking every image, click **Fix existing AutoSplit images**:
+
+1. Choose the LUT: the one you just generated, or load a `LUT.png` from disk.
+2. If a LUT filter was already active when you took your reference images (migrating from a hand-made LUT), load it under **Reverse a previous LUT** - its effect is reversed before the new LUT is applied.
+3. Select your reference images and click **Apply LUT to images** to save them as a zip.
+
+Filenames and transparency masks are preserved, and the LUT is applied with exactly OBS's math, so the images match your corrected capture. Replace your old images with the ones from the zip and your splits keep working.
+
 ## How the color fill savestates work
 
 If you're curious about how the gz calibration savestates produce a known screen-fill color, see [FILLSCREEN.md](FILLSCREEN.md).

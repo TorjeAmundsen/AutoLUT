@@ -50,7 +50,14 @@ public partial class FixImagesViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CloseCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoadCustomLutCommand))]
+    [NotifyCanExecuteChangedFor(nameof(LoadOldLutCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ClearOldLutCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SelectImagesCommand))]
     private bool _isBusy;
+
+    private bool NotBusy() => !IsBusy;
 
     public FixImagesViewModel(IImageCodec codec, IFilePickerService files)
     {
@@ -62,16 +69,44 @@ public partial class FixImagesViewModel : ObservableObject
     {
         _generatedApplier = generatedApplier;
         HasGeneratedLut = generatedApplier is not null;
-        UseGeneratedLut = HasGeneratedLut;
+        // Keep the user's LUT-source choice across reopens; only move the selection when the
+        // chosen source is not available.
+        if (UseGeneratedLut && !HasGeneratedLut)
+        {
+            UseGeneratedLut = false;
+        }
+        else if (!UseGeneratedLut && _customApplier is null && HasGeneratedLut)
+        {
+            UseGeneratedLut = true;
+        }
+
         Feedback = null;
         IsOpen = true;
         ApplyCommand.NotifyCanExecuteChanged();
     }
 
-    [RelayCommand]
+    /// <summary>Clears everything for the main Reset button; Close keeps state for reopening.</summary>
+    public void Reset()
+    {
+        Images.Clear();
+        _generatedApplier = null;
+        _customApplier = null;
+        _oldLutInverter = null;
+        HasGeneratedLut = false;
+        UseGeneratedLut = false;
+        CustomLutName = null;
+        OldLutName = null;
+        Feedback = null;
+        IsOpen = false;
+        OnPropertyChanged(nameof(HasImages));
+        OnPropertyChanged(nameof(HasOldLut));
+        ApplyCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(NotBusy))]
     private void Close() => IsOpen = false;
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(NotBusy))]
     private async Task LoadCustomLutAsync()
     {
         (string Name, byte[] Data)? picked;
@@ -109,7 +144,7 @@ public partial class FixImagesViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(NotBusy))]
     private async Task LoadOldLutAsync()
     {
         (string Name, byte[] Data)? picked;
@@ -146,7 +181,7 @@ public partial class FixImagesViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(NotBusy))]
     private void ClearOldLut()
     {
         _oldLutInverter = null;
@@ -154,7 +189,7 @@ public partial class FixImagesViewModel : ObservableObject
         OnPropertyChanged(nameof(HasOldLut));
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(NotBusy))]
     private async Task SelectImagesAsync()
     {
         IReadOnlyList<(string Name, byte[] Data)> picked;
@@ -168,7 +203,8 @@ public partial class FixImagesViewModel : ObservableObject
             return;
         }
 
-        string? error = null;
+        int failedCount = 0;
+        string? failedName = null;
         foreach (var (name, data) in picked)
         {
             try
@@ -203,11 +239,18 @@ public partial class FixImagesViewModel : ObservableObject
             }
             catch (InvalidDataException)
             {
-                error = $"{name} could not be read as a PNG image.";
+                failedCount++;
+                failedName = name;
             }
         }
 
-        Feedback = error ?? (picked.Count > 0 ? $"{Images.Count} image{(Images.Count == 1 ? "" : "s")} loaded." : Feedback);
+        Feedback = failedCount switch
+        {
+            0 when picked.Count > 0 => $"{Images.Count} image{(Images.Count == 1 ? "" : "s")} loaded.",
+            0 => Feedback,
+            1 => $"{failedName} could not be read as a PNG image.",
+            _ => $"{failedCount} files could not be read as PNG images.",
+        };
         OnPropertyChanged(nameof(HasImages));
         ApplyCommand.NotifyCanExecuteChanged();
     }
@@ -235,6 +278,9 @@ public partial class FixImagesViewModel : ObservableObject
             IsBusy = true;
             try
             {
+                // Snapshot before the loop: the awaits below yield to the UI thread, and the
+                // whole batch must use one consistent configuration.
+                var inverter = _oldLutInverter;
                 await using (stream)
                 {
                     // Build the archive in memory first: browser save streams are not seekable,
@@ -246,7 +292,6 @@ public partial class FixImagesViewModel : ObservableObject
                         {
                             var item = Images[i];
                             Feedback = $"Applying LUT: {i + 1}/{Images.Count}...";
-                            var inverter = _oldLutInverter;
                             var bytes = await Task.Run(() =>
                             {
                                 // Images taken with an old LUT active are de-corrected first, so

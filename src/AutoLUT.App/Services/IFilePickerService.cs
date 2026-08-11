@@ -2,9 +2,6 @@ namespace AutoLUT.App.Services;
 
 public interface IFilePickerService
 {
-    /// <summary>Lets the user pick PNG screenshots; returns name + raw bytes per file.</summary>
-    Task<IReadOnlyList<(string Name, byte[] Data)>> PickPngScreenshotsAsync();
-
     /// <summary>Lets the user pick multiple PNG images; returns name + raw bytes per file.</summary>
     Task<IReadOnlyList<(string Name, byte[] Data)>> PickPngImagesAsync(string title);
 

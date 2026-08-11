@@ -65,7 +65,9 @@ public partial class HelpWizardViewModel : ObservableObject
         "Load and generate",
         "Click Load images below - or drag and drop your screenshots anywhere onto this guide - then click Generate LUT in the bottom left.",
         "When generation finishes, this guide closes and the corrected preview appears - it matches exactly what OBS "
-        + "will render. Then Save LUT.png and in OBS: right-click your capture source, Filters, add Apply LUT, and select the file.");
+        + "will render. Then Save LUT.png and in OBS: right-click your capture source, Filters, add Apply LUT, and select the file. "
+        + "If you use AutoSplit, click Fix existing AutoSplit images afterwards to apply the LUT to your reference "
+        + "images, so your existing splits keep matching.");
 
     // The get-colors step differs per platform: web offers the download right in the wizard,
     // desktop bundles the savestates and points at the GitHub releases page for the rest.

@@ -40,6 +40,11 @@ public sealed class SkiaImageCodec : IImageCodec
 
     public void EncodePng(RawImage image, byte[]? alpha, Stream stream)
     {
+        if (alpha is not null && alpha.Length != image.Width * image.Height)
+        {
+            throw new ArgumentException($"Alpha plane has {alpha.Length} entries, expected {image.Width * image.Height} (one per pixel).", nameof(alpha));
+        }
+
         var alphaType = alpha is null ? SKAlphaType.Opaque : SKAlphaType.Unpremul;
         var info = new SKImageInfo(image.Width, image.Height, SKColorType.Rgba8888, alphaType);
         using var bitmap = new SKBitmap(info);

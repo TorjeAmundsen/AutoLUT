@@ -186,7 +186,7 @@ public partial class MainWindowViewModel : ObservableObject
         IReadOnlyList<(string Name, byte[] Data)> picked;
         try
         {
-            picked = await _files.PickPngScreenshotsAsync();
+            picked = await _files.PickPngImagesAsync("Select calibration screenshots");
         }
         catch (Exception ex)
         {
@@ -239,7 +239,7 @@ public partial class MainWindowViewModel : ObservableObject
         StatusText = "Capture the 39 calibration colors, then add the screenshots here.";
         LastDetails = null;
         IsDetailsOpen = false;
-        FixImages.IsOpen = false;
+        FixImages.Reset();
         GenerateCommand.NotifyCanExecuteChanged();
         ResetCommand.NotifyCanExecuteChanged();
     }
