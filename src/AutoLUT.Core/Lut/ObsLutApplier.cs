@@ -96,7 +96,7 @@ public sealed class ObsLutApplier
 
     /// <summary>
     /// Trilinear sample at continuous sRGB-encoded coordinates in [0,1]; returns linear RGB.
-    /// Same lattice math as the byte path, for callers that need sub-byte precision (LUT inversion).
+    /// Matches the byte path up to float rounding of the lattice coordinate.
     /// </summary>
     public (float R, float G, float B) SampleContinuous(float r, float g, float b)
     {

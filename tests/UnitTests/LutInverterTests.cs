@@ -6,39 +6,34 @@ namespace UnitTests;
 public class LutInverterTests
 {
     [Test]
-    public void IdentityLut_InvertsToSamePixels()
+    public void IdentityLut_InvertThenReapply_ReproducesSourceExactly()
     {
-        // Arrange: the identity LUT maps every color to itself, so its inverse must too.
-        var inverter = new ObsLutInverter(new ObsLutApplier(TestImages.LoadTemplate()));
+        // Arrange: every color is reachable through the identity LUT, and the solve tolerance
+        // is far below the final rounding step.
+        var identity = new ObsLutApplier(TestImages.LoadTemplate());
+        var inverter = new ObsLutInverter(identity);
         var source = TestImages.Random(32, 24, seed: 11);
 
         // Act
-        var result = inverter.Invert(source);
+        var result = inverter.InvertThenApply(identity, source);
 
-        // Assert: the baked identity quantizes lattice values, allow 1 LSB like the applier test.
-        using (Assert.EnterMultipleScope())
-        {
-            for (int i = 0; i < source.Pixels.Length; i++)
-            {
-                int diff = Math.Abs(source.Pixels[i] - result.Pixels[i]);
-                Assert.That(diff, Is.LessThanOrEqualTo(1),
-                    $"Pixel byte {i}: {source.Pixels[i]} -> {result.Pixels[i]} (diff {diff})");
-            }
-        }
+        // Assert
+        Assert.That(result.Pixels, Is.EqualTo(source.Pixels));
     }
 
     [Test]
     public void SmoothLut_ApplyThenInvert_RoundTripsWithinQuantization()
     {
         // Arrange: a channel-scaling LUT (red 60%, green 80%) is smooth and injective, so the
-        // inverse should recover the original up to the quantization the forward pass discarded:
-        // red loses ~40% of its levels, so up to 2 LSB there.
+        // inverse should recover the original up to the quantization the forward pass discarded.
+        // Red loses about 40% of its levels, so up to 2 LSB there.
         var applier = new ObsLutApplier(ScaledLut(0.6f, 0.8f, 1f));
         var inverter = new ObsLutInverter(applier);
+        var identity = new ObsLutApplier(TestImages.LoadTemplate());
         var source = TestImages.Random(32, 24, seed: 22);
 
         // Act
-        var roundTripped = inverter.Invert(applier.Apply(source));
+        var roundTripped = inverter.InvertThenApply(identity, applier.Apply(source));
 
         // Assert
         using (Assert.EnterMultipleScope())
@@ -55,38 +50,10 @@ public class LutInverterTests
     [Test]
     public void MigrationPipeline_MatchesApplyingNewLutToOriginal()
     {
-        // Arrange: the feature's scenario. Reference images were captured with an old LUT active;
-        // reversing the old LUT and applying the new one should match applying the new LUT to the
-        // never-corrected original, within the error the old LUT's quantization introduced.
-        var oldApplier = new ObsLutApplier(ScaledLut(0.6f, 1f, 0.85f));
-        var newApplier = new ObsLutApplier(ScaledLut(1f, 0.75f, 0.9f));
-        var inverter = new ObsLutInverter(oldApplier);
-        var original = TestImages.Random(32, 24, seed: 33);
-        var reference = oldApplier.Apply(original);
-
-        // Act
-        var migrated = newApplier.Apply(inverter.Invert(reference));
-        var expected = newApplier.Apply(original);
-
-        // Assert
-        using (Assert.EnterMultipleScope())
-        {
-            for (int i = 0; i < expected.Pixels.Length; i++)
-            {
-                int diff = Math.Abs(expected.Pixels[i] - migrated.Pixels[i]);
-                Assert.That(diff, Is.LessThanOrEqualTo(2),
-                    $"Pixel byte {i}: expected {expected.Pixels[i]}, got {migrated.Pixels[i]} (diff {diff})");
-            }
-        }
-    }
-
-    [Test]
-    public void MigrationPipeline_FloatComposition_MatchesApplyingNewLutToOriginal()
-    {
-        // Arrange: same scenario as above, but composed in float via InvertThenApply. The only
-        // remaining losses are the old LUT's output quantization baked into the reference
-        // (irrecoverable) and the final rounding, so this path must stay within 1 LSB where the
-        // two-step path is allowed 2.
+        // Arrange: reference images were captured with an old LUT active. Reversing it and
+        // applying the new LUT should match applying the new LUT to the never-corrected original.
+        // The only losses are the old LUT's output quantization, baked into the reference, and
+        // the final rounding.
         var oldApplier = new ObsLutApplier(ScaledLut(0.6f, 1f, 0.85f));
         var newApplier = new ObsLutApplier(ScaledLut(1f, 0.75f, 0.9f));
         var inverter = new ObsLutInverter(oldApplier);
@@ -110,16 +77,38 @@ public class LutInverterTests
     }
 
     [Test]
+    public void InvertThenApplyRows_InBands_MatchesWholeImage()
+    {
+        // Arrange: 23 rows in bands of 5 leaves a short final band.
+        var oldApplier = new ObsLutApplier(ScaledLut(0.6f, 1f, 0.85f));
+        var newApplier = new ObsLutApplier(ScaledLut(1f, 0.75f, 0.9f));
+        var source = TestImages.Random(19, 23, seed: 55);
+        var expected = new ObsLutInverter(oldApplier).InvertThenApply(newApplier, source);
+
+        // Act
+        var inverter = new ObsLutInverter(oldApplier);
+        var banded = new RawImage(source.Width, source.Height);
+        for (int row = 0; row < source.Height; row += 5)
+        {
+            inverter.InvertThenApplyRows(newApplier, source, banded, row, Math.Min(5, source.Height - row));
+        }
+
+        // Assert
+        Assert.That(banded.Pixels, Is.EqualTo(expected.Pixels));
+    }
+
+    [Test]
     public void ClippedLut_InvertsToNearestAchievableWithoutDiverging()
     {
         // Arrange: a LUT that clips red above 200 is not injective there; the inverse cannot
         // recover clipped detail but must stay stable and exact in the unclipped range.
         var applier = new ObsLutApplier(ClampedRedLut(200));
         var inverter = new ObsLutInverter(applier);
+        var identity = new ObsLutApplier(TestImages.LoadTemplate());
         var source = TestImages.Random(16, 16, seed: 44);
 
         // Act
-        var roundTripped = inverter.Invert(applier.Apply(source));
+        var roundTripped = inverter.InvertThenApply(identity, applier.Apply(source));
 
         // Assert: green and blue are untouched by this LUT; red must round-trip below the clip.
         using (Assert.EnterMultipleScope())

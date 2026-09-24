@@ -109,20 +109,46 @@ public partial class FixImagesViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(NotBusy))]
     private async Task LoadCustomLutAsync()
     {
+        if (await PickLutAsync("Select OBS LUT PNG") is not { } lut)
+        {
+            return;
+        }
+
+        _customApplier = lut.Applier;
+        CustomLutName = lut.Name;
+        UseGeneratedLut = false;
+        ApplyCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(NotBusy))]
+    private async Task LoadOldLutAsync()
+    {
+        if (await PickLutAsync("Select the LUT that was active when the images were taken") is not { } lut)
+        {
+            return;
+        }
+
+        _oldLutInverter = new ObsLutInverter(lut.Applier);
+        OldLutName = lut.Name;
+        OnPropertyChanged(nameof(HasOldLut));
+    }
+
+    private async Task<(string Name, ObsLutApplier Applier)?> PickLutAsync(string title)
+    {
         (string Name, byte[] Data)? picked;
         try
         {
-            picked = await _files.PickSinglePngAsync("Select OBS LUT PNG");
+            picked = await _files.PickSinglePngAsync(title);
         }
         catch (Exception ex)
         {
             Feedback = $"Could not read the selected file: {ex.Message}";
-            return;
+            return null;
         }
 
         if (picked is not { } file)
         {
-            return;
+            return null;
         }
 
         try
@@ -132,52 +158,13 @@ public partial class FixImagesViewModel : ObservableObject
                 using var stream = new MemoryStream(file.Data);
                 return new ObsLutApplier(_codec.Decode(stream));
             });
-            _customApplier = applier;
-            CustomLutName = file.Name;
-            UseGeneratedLut = false;
             Feedback = null;
-            ApplyCommand.NotifyCanExecuteChanged();
+            return (file.Name, applier);
         }
         catch (Exception ex) when (ex is InvalidDataException or ArgumentException)
         {
             Feedback = $"{file.Name} is not a valid OBS LUT: expected a 512x512 PNG.";
-        }
-    }
-
-    [RelayCommand(CanExecute = nameof(NotBusy))]
-    private async Task LoadOldLutAsync()
-    {
-        (string Name, byte[] Data)? picked;
-        try
-        {
-            picked = await _files.PickSinglePngAsync("Select the LUT that was active when the images were taken");
-        }
-        catch (Exception ex)
-        {
-            Feedback = $"Could not read the selected file: {ex.Message}";
-            return;
-        }
-
-        if (picked is not { } file)
-        {
-            return;
-        }
-
-        try
-        {
-            var inverter = await Task.Run(() =>
-            {
-                using var stream = new MemoryStream(file.Data);
-                return new ObsLutInverter(new ObsLutApplier(_codec.Decode(stream)));
-            });
-            _oldLutInverter = inverter;
-            OldLutName = file.Name;
-            Feedback = null;
-            OnPropertyChanged(nameof(HasOldLut));
-        }
-        catch (Exception ex) when (ex is InvalidDataException or ArgumentException)
-        {
-            Feedback = $"{file.Name} is not a valid OBS LUT: expected a 512x512 PNG.";
+            return null;
         }
     }
 
@@ -205,43 +192,43 @@ public partial class FixImagesViewModel : ObservableObject
 
         int failedCount = 0;
         string? failedName = null;
-        foreach (var (name, data) in picked)
+        // Blocks Apply from zipping a half-loaded selection.
+        IsBusy = true;
+        try
         {
-            try
+            foreach (var (name, data) in picked)
             {
-                var (image, alpha) = await Task.Run(() =>
+                try
                 {
-                    using var stream = new MemoryStream(data);
-                    return _codec.DecodeWithAlpha(stream);
-                });
-
-                var item = new FixImageItem(name, image, alpha);
-                // Picking a file with the same name again replaces it, so zip entry names
-                // stay unique without renaming (AutoSplit parses semantics out of filenames).
-                int existing = -1;
-                for (int i = 0; i < Images.Count; i++)
-                {
-                    if (string.Equals(Images[i].Name, name, StringComparison.OrdinalIgnoreCase))
+                    var (image, alpha) = await Task.Run(() =>
                     {
-                        existing = i;
-                        break;
+                        using var stream = new MemoryStream(data);
+                        return _codec.DecodeWithAlpha(stream);
+                    });
+
+                    var item = new FixImageItem(name, image, alpha);
+                    // Picking a file with the same name again replaces it, so zip entry names
+                    // stay unique without renaming (AutoSplit parses semantics out of filenames).
+                    var existing = Images.FirstOrDefault(loaded => string.Equals(loaded.Name, name, StringComparison.OrdinalIgnoreCase));
+                    if (existing is null)
+                    {
+                        Images.Add(item);
+                    }
+                    else
+                    {
+                        Images[Images.IndexOf(existing)] = item;
                     }
                 }
-
-                if (existing >= 0)
+                catch (InvalidDataException)
                 {
-                    Images[existing] = item;
-                }
-                else
-                {
-                    Images.Add(item);
+                    failedCount++;
+                    failedName = name;
                 }
             }
-            catch (InvalidDataException)
-            {
-                failedCount++;
-                failedName = name;
-            }
+        }
+        finally
+        {
+            IsBusy = false;
         }
 
         Feedback = failedCount switch
@@ -254,6 +241,8 @@ public partial class FixImagesViewModel : ObservableObject
         OnPropertyChanged(nameof(HasImages));
         ApplyCommand.NotifyCanExecuteChanged();
     }
+
+    private const int InverseChunkPixels = 16384;
 
     private ObsLutApplier? EffectiveApplier => UseGeneratedLut ? _generatedApplier : _customApplier;
 
@@ -281,6 +270,7 @@ public partial class FixImagesViewModel : ObservableObject
                 // Snapshot before the loop: the awaits below yield to the UI thread, and the
                 // whole batch must use one consistent configuration.
                 var inverter = _oldLutInverter;
+                var items = Images.ToArray();
                 await using (stream)
                 {
                     // Build the archive in memory first: browser save streams are not seekable,
@@ -288,18 +278,36 @@ public partial class FixImagesViewModel : ObservableObject
                     using var memory = new MemoryStream();
                     using (var zip = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
                     {
-                        for (int i = 0; i < Images.Count; i++)
+                        for (int i = 0; i < items.Length; i++)
                         {
-                            var item = Images[i];
-                            Feedback = $"Applying LUT: {i + 1}/{Images.Count}...";
-                            var bytes = await Task.Run(() =>
+                            var item = items[i];
+                            string progress = $"Applying LUT: {i + 1}/{items.Length}";
+                            Feedback = progress + "...";
+                            RawImage corrected;
+                            if (inverter is null)
+                            {
+                                corrected = await Task.Run(() => applier.Apply(item.Image));
+                            }
+                            else
                             {
                                 // Images taken with an old LUT active are de-corrected first, so
                                 // the new LUT lands on the same input OBS will now correct. The
                                 // reversal composes with the new LUT in float, quantizing once.
-                                var corrected = inverter is null
-                                    ? applier.Apply(item.Image)
-                                    : inverter.InvertThenApply(applier, item.Image);
+                                var output = new RawImage(item.Image.Width, item.Image.Height);
+                                int height = item.Image.Height;
+                                int rowsPerChunk = Math.Max(1, InverseChunkPixels / item.Image.Width);
+                                for (int firstRow = 0; firstRow < height; firstRow += rowsPerChunk)
+                                {
+                                    int start = firstRow, rowCount = Math.Min(rowsPerChunk, height - firstRow);
+                                    await Task.Run(() => inverter.InvertThenApplyRows(applier, item.Image, output, start, rowCount));
+                                    Feedback = $"{progress} ({100 * (start + rowCount) / height}%)...";
+                                }
+
+                                corrected = output;
+                            }
+
+                            var bytes = await Task.Run(() =>
+                            {
                                 using var png = new MemoryStream();
                                 _codec.EncodePng(corrected, item.Alpha, png);
                                 return png.ToArray();
@@ -314,7 +322,11 @@ public partial class FixImagesViewModel : ObservableObject
                     await memory.CopyToAsync(stream);
                 }
 
-                Feedback = $"Saved zip with {Images.Count} fixed image{(Images.Count == 1 ? "" : "s")}.";
+                Feedback = $"Saved zip with {items.Length} fixed image{(items.Length == 1 ? "" : "s")}.";
+            }
+            catch (Exception ex)
+            {
+                Feedback = $"Save failed and left an incomplete zip file. {ex.Message}";
             }
             finally
             {

@@ -23,39 +23,36 @@ public sealed class ObsLutInverter
     private const int MaxIterations = 40;
     private const float JacobianStep = 1f / 510f;
 
+    // The inverter outlives a single batch, so the cache needs a cap. About 40 MB when full.
+    private const int MaxCacheEntries = 1 << 20;
+
     private readonly ObsLutApplier _applier;
     private readonly Dictionary<int, (float R, float G, float B)> _cache = [];
 
     public ObsLutInverter(ObsLutApplier applier) => _applier = applier;
 
-    public RawImage Invert(RawImage source)
-    {
-        var output = new RawImage(source.Width, source.Height);
-        byte[] sourcePixels = source.Pixels;
-        byte[] outputPixels = output.Pixels;
-        for (int i = 0; i < sourcePixels.Length; i += 3)
-        {
-            var (r, g, b) = SolveInverse(sourcePixels[i], sourcePixels[i + 1], sourcePixels[i + 2]);
-            outputPixels[i] = (byte)MathF.Round(r * 255f);
-            outputPixels[i + 1] = (byte)MathF.Round(g * 255f);
-            outputPixels[i + 2] = (byte)MathF.Round(b * 255f);
-        }
-
-        return output;
-    }
-
     /// <summary>
     /// Reverses this LUT and applies another on top, composing in float: the solved inverse is
     /// fed straight into the new LUT's continuous sampler, so the only quantization is the final
-    /// output rounding. Less lossy than Invert followed by Apply, which rounds the intermediate
-    /// image to bytes.
+    /// output rounding.
     /// </summary>
     public RawImage InvertThenApply(ObsLutApplier newLut, RawImage source)
     {
         var output = new RawImage(source.Width, source.Height);
+        InvertThenApplyRows(newLut, source, output, 0, source.Height);
+        return output;
+    }
+
+    /// <summary>
+    /// Lets callers yield between row ranges. The single-threaded browser build runs Task.Run
+    /// work on the UI thread.
+    /// </summary>
+    public void InvertThenApplyRows(ObsLutApplier newLut, RawImage source, RawImage output, int firstRow, int rowCount)
+    {
         byte[] sourcePixels = source.Pixels;
         byte[] outputPixels = output.Pixels;
-        for (int i = 0; i < sourcePixels.Length; i += 3)
+        int end = (firstRow + rowCount) * source.Width * 3;
+        for (int i = firstRow * source.Width * 3; i < end; i += 3)
         {
             var (inverseR, inverseG, inverseB) = SolveInverse(sourcePixels[i], sourcePixels[i + 1], sourcePixels[i + 2]);
             var (r, g, b) = newLut.ApplyContinuous(inverseR, inverseG, inverseB);
@@ -63,8 +60,6 @@ public sealed class ObsLutInverter
             outputPixels[i + 1] = g;
             outputPixels[i + 2] = b;
         }
-
-        return output;
     }
 
     /// <summary>Solves for the continuous sRGB input this LUT maps to the target color; cached per color.</summary>
@@ -135,6 +130,11 @@ public sealed class ObsLutInverter
 
         // Input only ever moves on improvement, so it always holds the best solution found.
         var result = (input[0], input[1], input[2]);
+        if (_cache.Count >= MaxCacheEntries)
+        {
+            _cache.Clear();
+        }
+
         _cache[key] = result;
         return result;
     }

@@ -85,6 +85,33 @@ public class LutApplierTests
     }
 
     [Test]
+    public void ApplyContinuous_AtByteCoordinates_MatchesApply()
+    {
+        // Arrange: every byte value on every channel, including the lattice-aligned 85 and 170.
+        var applier = new ObsLutApplier(TestImages.Random(512, 512, seed: 321));
+        var source = new RawImage(256, 3);
+        for (int v = 0; v < 256; v++)
+        {
+            source.Pixels[v * 3] = (byte)v;
+            source.Pixels[(256 + v) * 3 + 1] = (byte)v;
+            source.Pixels[(512 + v) * 3 + 2] = (byte)v;
+        }
+
+        var expected = applier.Apply(source);
+
+        // Act
+        var actual = new RawImage(source.Width, source.Height);
+        for (int i = 0; i < source.Pixels.Length; i += 3)
+        {
+            (actual.Pixels[i], actual.Pixels[i + 1], actual.Pixels[i + 2]) =
+                applier.ApplyContinuous(source.Pixels[i] / 255f, source.Pixels[i + 1] / 255f, source.Pixels[i + 2] / 255f);
+        }
+
+        // Assert
+        Assert.That(actual.Pixels, Is.EqualTo(expected.Pixels));
+    }
+
+    [Test]
     public void Applier_RejectsWrongLutImageSize()
     {
         Assert.Throws<ArgumentException>(() => new ObsLutApplier(TestImages.Random(512, 256, 1)));
