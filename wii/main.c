@@ -151,11 +151,52 @@ static void draw_string(void *framebuffer, int x, int y, const char *text, u32 f
     }
 }
 
+static void draw_boxed_string(void *framebuffer, int x, int y, const char *text) {
+    int box_width = (int)strlen(text) * FONT_ADVANCE + 8;
+    fill_rect(framebuffer, x, y, box_width, FONT_HEIGHT + 12, TEXT_DARK_GRAY);
+    draw_string(framebuffer, x + 4, y + 6, text, TEXT_WHITE, TEXT_DARK_GRAY);
+}
+
+static inline u32 gray(u8 level) {
+    return rgb_to_ycbcr(level, level, level, level, level, level);
+}
+
+// Near-black and near-white step boxes for judging the capture's color range by
+// eye: a crushed capture merges the faint boxes into the background, a
+// washed-out one turns the black half gray and dims the white.
+static const u8 black_steps[] = { 8, 16, 24, 32 };
+static const u8 white_steps[] = { 247, 239, 231, 223 };
+#define STEP_COUNT 4
+
+static void draw_step_row(void *framebuffer, int y, u8 background, u8 text, const u8 *steps) {
+    for (int i = 0; i < STEP_COUNT; i++) {
+        int x = 80 + i * 128;
+        fill_rect(framebuffer, x, y, 96, 64, gray(steps[i]));
+        char label[4];
+        snprintf(label, sizeof(label), "%d", steps[i]);
+        draw_string(framebuffer, x + 48 - (int)strlen(label) * FONT_ADVANCE / 2, y + 72,
+                    label, gray(text), gray(background));
+    }
+}
+
+// Top half black, bottom half white, a row of step boxes in each.
+static void draw_setup_check(void *framebuffer) {
+    clear_screen(framebuffer, gray(0x00));
+    fill_rect(framebuffer, 0, 240, video_mode->fbWidth, 240, gray(0xFF));
+
+    draw_string(framebuffer, 80, 80, "NEAR BLACK: see all 4 boxes?", gray(0xA0), gray(0x00));
+    draw_step_row(framebuffer, 112, 0x00, 0xA0, black_steps);
+
+    draw_string(framebuffer, 80, 256, "NEAR WHITE: see all 4 boxes?", gray(0x60), gray(0xFF));
+    draw_step_row(framebuffer, 288, 0xFF, 0x60, white_steps);
+
+    draw_boxed_string(framebuffer, 32, 424, "SETUP CHECK - see guide");
+}
+
 // Fills the screen with the palette color and draws the index/RGB label on a
 // fixed dark-gray box at the bottom-left edge. AutoLUT only samples the center
 // 30%x30% of the frame, so the screen edges are safe for UI.
-static void render(int index) {
-    void *framebuffer = framebuffers[current_framebuffer ^ 1];
+static void draw_palette_color(void *framebuffer, int index) {
     const palette_color *color = &palette[index];
 
     clear_screen(framebuffer, rgb_to_ycbcr(color->red, color->green, color->blue,
@@ -167,15 +208,21 @@ static void render(int index) {
 
     // Insets keep the boxes out of typical CRT/capture overscan while staying
     // well clear of the sampled center region (y 168-312 at 480p).
-    int box_width = (int)strlen(label) * FONT_ADVANCE + 8;
-    fill_rect(framebuffer, 32, 424, box_width, FONT_HEIGHT + 12, TEXT_DARK_GRAY);
-    draw_string(framebuffer, 36, 430, label, TEXT_WHITE, TEXT_DARK_GRAY);
+    draw_boxed_string(framebuffer, 32, 424, label);
+}
 
-    // Controls hint at the top edge.
-    const char *controls = "LEFT/RIGHT: prev/next  A: next  HOME: exit";
-    int controls_width = (int)strlen(controls) * FONT_ADVANCE + 8;
-    fill_rect(framebuffer, 32, 32, controls_width, FONT_HEIGHT + 12, TEXT_DARK_GRAY);
-    draw_string(framebuffer, 36, 38, controls, TEXT_WHITE, TEXT_DARK_GRAY);
+// Draws the setup check screen or the palette color at index, plus the
+// matching controls hint at the top edge.
+static void render(int showing_check, int index) {
+    void *framebuffer = framebuffers[current_framebuffer ^ 1];
+
+    if (showing_check) {
+        draw_setup_check(framebuffer);
+        draw_boxed_string(framebuffer, 32, 32, "B: back to colors  HOME: exit");
+    } else {
+        draw_palette_color(framebuffer, index);
+        draw_boxed_string(framebuffer, 32, 32, "LEFT/RIGHT: prev/next  A: next  B: check  HOME: exit");
+    }
 
     VIDEO_SetNextFramebuffer(framebuffer);
     VIDEO_Flush();
@@ -206,7 +253,10 @@ int main(int argc, char **argv) {
     }
 
     int current_index = 0;
-    render(current_index);
+    // B toggles the setup check screen, outside the color cycle; current_index
+    // is kept so B returns to the color the check screen was entered from.
+    int showing_check = 1;
+    render(showing_check, current_index);
 
     while (1) {
         VIDEO_WaitVSync();
@@ -220,6 +270,16 @@ int main(int argc, char **argv) {
             break;
         }
 
+        if ((wiimote_pressed & WPAD_BUTTON_B) || (gamepad_pressed & PAD_BUTTON_B)) {
+            showing_check = !showing_check;
+            render(showing_check, current_index);
+            continue;
+        }
+        if (showing_check) {
+            // Only B leaves the check screen.
+            continue;
+        }
+
         int next_index = current_index;
         if ((wiimote_pressed & (WPAD_BUTTON_RIGHT | WPAD_BUTTON_A))
             || (gamepad_pressed & (PAD_BUTTON_RIGHT | PAD_BUTTON_A))) {
@@ -230,7 +290,7 @@ int main(int argc, char **argv) {
 
         if (next_index != current_index) {
             current_index = next_index;
-            render(current_index);
+            render(showing_check, current_index);
         }
     }
 

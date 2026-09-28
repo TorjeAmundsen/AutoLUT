@@ -66,6 +66,55 @@ static void draw_boxed_text(surface_t *disp, int x, int y, const char *text) {
     graphics_draw_text(disp, x + 4, y + 4, text);
 }
 
+// Near-black and near-white step boxes, each paired with a label, for judging the
+// capture's color range by eye: a crushed capture merges the faint boxes into
+// the background, a washed-out one turns the black half gray and dims the white.
+static const uint8_t black_steps[] = { 8, 16, 24, 32 };
+static const uint8_t white_steps[] = { 247, 239, 231, 223 };
+#define STEP_COUNT 4
+
+static void draw_step_row(surface_t *disp, int y, uint8_t background, uint8_t text, const uint8_t *steps) {
+    uint32_t background_color = graphics_make_color(background, background, background, 0xFF);
+    graphics_set_color(graphics_make_color(text, text, text, 0xFF), background_color);
+    for (int i = 0; i < STEP_COUNT; i++) {
+        int x = 40 + i * 64;
+        graphics_draw_box(disp, x, y, 48, 32, graphics_make_color(steps[i], steps[i], steps[i], 0xFF));
+        char label[4];
+        snprintf(label, sizeof(label), "%d", steps[i]);
+        graphics_draw_text(disp, x + 24 - (int)strlen(label) * FONT_WIDTH / 2, y + 36, label);
+    }
+}
+
+// Top half black, bottom half white, a row of step boxes in each.
+static void draw_setup_check(surface_t *disp) {
+    uint32_t black = graphics_make_color(0x00, 0x00, 0x00, 0xFF);
+    uint32_t white = graphics_make_color(0xFF, 0xFF, 0xFF, 0xFF);
+    graphics_fill_screen(disp, black);
+    graphics_draw_box(disp, 0, 120, 320, 120, white);
+
+    graphics_set_color(graphics_make_color(0xA0, 0xA0, 0xA0, 0xFF), black);
+    graphics_draw_text(disp, 40, 40, "NEAR BLACK: see all 4 boxes?");
+    draw_step_row(disp, 56, 0x00, 0xA0, black_steps);
+
+    graphics_set_color(graphics_make_color(0x60, 0x60, 0x60, 0xFF), white);
+    graphics_draw_text(disp, 40, 128, "NEAR WHITE: see all 4 boxes?");
+    draw_step_row(disp, 144, 0xFF, 0x60, white_steps);
+
+    draw_boxed_text(disp, 16, 208, "SETUP CHECK - see guide");
+}
+
+static void draw_palette_color(surface_t *disp, int index) {
+    const palette_color *color = &palette[index];
+    graphics_fill_screen(disp, graphics_make_color(color->red, color->green, color->blue, 0xFF));
+
+    // Overlays sit at the screen edges, inset for overscan and well clear
+    // of the sampled center 30% region (x 112-208, y 84-156 at 320x240).
+    char label[32];
+    snprintf(label, sizeof(label), "%02d/%02d #%02X%02X%02X",
+             index + 1, PALETTE_COUNT, color->red, color->green, color->blue);
+    draw_boxed_text(disp, 16, 208, label);
+}
+
 int main(void) {
     // 32bpp framebuffer with gamma, dedither and divot off: the commanded 8-bit
     // RGB is scanned out exactly - no RGBA5551 quantization, no dither. Resample
@@ -77,6 +126,9 @@ int main(void) {
     graphics_set_default_font();
 
     int current_index = 0;
+    // B toggles the setup check screen, outside the color cycle; current_index
+    // is kept so B returns to the color the check screen was entered from.
+    int showing_check = 1;
     // The bulk uncached framebuffer writes contend with the VI's scanout fetches,
     // which shows up as flicker near the top of the frame. Draw only when the
     // color changes - once into each of the two buffers - and leave the
@@ -87,12 +139,17 @@ int main(void) {
         joypad_poll();
         joypad_buttons_t pressed = joypad_get_buttons_pressed(JOYPAD_PORT_1);
 
-        if (pressed.d_right || pressed.a) {
-            current_index = (current_index + 1) % PALETTE_COUNT;
+        if (pressed.b) {
+            showing_check = !showing_check;
             buffers_to_draw = 2;
-        } else if (pressed.d_left) {
-            current_index = (current_index + PALETTE_COUNT - 1) % PALETTE_COUNT;
-            buffers_to_draw = 2;
+        } else if (!showing_check) {
+            if (pressed.d_right || pressed.a) {
+                current_index = (current_index + 1) % PALETTE_COUNT;
+                buffers_to_draw = 2;
+            } else if (pressed.d_left) {
+                current_index = (current_index + PALETTE_COUNT - 1) % PALETTE_COUNT;
+                buffers_to_draw = 2;
+            }
         }
 
         // display_get blocks until vblank frees a buffer, throttling this loop
@@ -101,17 +158,13 @@ int main(void) {
 
         if (buffers_to_draw > 0) {
             buffers_to_draw--;
-            const palette_color *color = &palette[current_index];
-            graphics_fill_screen(disp, graphics_make_color(color->red, color->green, color->blue, 0xFF));
-
-            // Overlays sit at the screen edges, inset for overscan and well clear
-            // of the sampled center 30% region (x 112-208, y 84-156 at 320x240).
-            char label[32];
-            snprintf(label, sizeof(label), "%02d/%02d #%02X%02X%02X",
-                     current_index + 1, PALETTE_COUNT, color->red, color->green, color->blue);
-
-            draw_boxed_text(disp, 16, 16, "D-PAD: prev/next  A: next");
-            draw_boxed_text(disp, 16, 208, label);
+            if (showing_check) {
+                draw_setup_check(disp);
+                draw_boxed_text(disp, 16, 16, "B: back to colors");
+            } else {
+                draw_palette_color(disp, current_index);
+                draw_boxed_text(disp, 16, 16, "D-PAD: prev/next  A: next  B: check");
+            }
         }
 
         display_show(disp);

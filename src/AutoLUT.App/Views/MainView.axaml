@@ -159,12 +159,15 @@
                                      Text="You have an N64 flashcard available and want a quick and easy way to scroll through the required color palette. This is also technically more accurate than gz on N64." />
                         </StackPanel>
                       </Button>
+                      <!-- gz is kept for existing users but de-emphasized: anyone who can run gz
+                           can also run the Wii app or N64 ROM above. -->
+                      <TextBlock Text="Legacy" Foreground="#999999" FontSize="12" Margin="0,8,0,0" />
                       <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12,16"
                               Command="{Binding Help.SelectPlatformCommand}" CommandParameter="gz">
                         <StackPanel Spacing="8">
-                          <TextBlock Text="Ocarina of Time Practice ROM savestates (gz 0.3.7)" FontWeight="SemiBold" />
+                          <TextBlock Text="Ocarina of Time gz savestates (not recommended)" FontWeight="SemiBold" />
                           <TextBlock TextWrapping="Wrap" Foreground="#C8C8C8" FontSize="12"
-                                     Text="You're an Ocarina of Time speedrunner and want to load the colors via gz without a custom homebrew app or custom N64 ROM aside from gz." />
+                                     Text="If you can run gz, you can run the Wii app or N64 ROM above: gz on Wii VC already needs the Homebrew Channel, and gz on N64 already needs a flashcart. Use one of those instead. They are quicker to step through, more accurate on N64, and include a color range check screen. The savestates stay available for anyone who still needs them." />
                         </StackPanel>
                       </Button>
                     </StackPanel>
