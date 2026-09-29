@@ -56,20 +56,8 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>Step-through "How to use" guide shown in place of the preview pane.</summary>
     public HelpWizardViewModel Help { get; } = new();
 
-    // Starting the guide clears any loaded work so the user follows it from a clean slate.
     [RelayCommand]
-    private void ToggleHelp()
-    {
-        if (Help.IsOpen)
-        {
-            Help.IsOpen = false;
-        }
-        else
-        {
-            ResetCore();
-            Help.Open();
-        }
-    }
+    private void ToggleHelp() => Help.IsOpen = !Help.IsOpen;
 
     [ObservableProperty]
     private CalibrationDetailsViewModel? _lastDetails;
@@ -330,11 +318,17 @@ public partial class MainWindowViewModel : ObservableObject
         _lutGeneration++;
         HasLut = true;
         ShowCorrected = true;
-        // The guide occupies the preview pane; close it so the corrected preview is visible.
-        Help.IsOpen = false;
+        // Both warnings mean the captures need redoing, so pointing the user at saving would be wrong.
+        bool mustRecapture = result.ColorRangeWarning is not null || result.ColorSpaceWarning is not null;
+        if (!mustRecapture)
+        {
+            Help.MovePastGenerateStep();
+        }
+
+        string next = mustRecapture ? "" : " Next: click Save LUT.png.";
         StatusText = result.Diagnostics is { } d
-            ? $"Finished - mean ΔE {d.MeanDeltaE:F4}, p95 {d.P95DeltaE:F4}, {d.InlierCount}/{d.TotalCount} inliers."
-            : "Finished";
+            ? $"Finished - mean ΔE {d.MeanDeltaE:F4}, p95 {d.P95DeltaE:F4}, {d.InlierCount}/{d.TotalCount} inliers.{next}"
+            : $"Finished.{next}";
         await UpdatePreviewAsync();
     }
 
