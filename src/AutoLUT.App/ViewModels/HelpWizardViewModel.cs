@@ -9,7 +9,9 @@ public partial class HelpWizardViewModel : ObservableObject
 {
     private sealed record HelpStep(string Title, string Body, string? Note = null);
 
-    private static readonly HelpStep ObsStep = new(
+    // Item 4 differs per platform: the palette apps have a setup check step for the
+    // capture source's Color Range, gz users only get AutoLUT's warning after generating.
+    private static HelpStep ObsStep(string colorRangeItem) => new(
         "OBS setup part 1 - do this first",
         "Incorrect OBS settings WILL force you to re-take all captures if you want optimal and accurate "
         + "results, so follow these instructions closely.",
@@ -20,10 +22,19 @@ public partial class HelpWizardViewModel : ObservableObject
         + "3. Also in the source's Properties, set Resolution/FPS Type to Custom and Resolution to 720x480 - "
         + "some capture card drivers (for example Elgato) otherwise force their own color range conversion on "
         + "top of OBS's, doubling any mismatch; a custom resolution makes OBS take over the conversion "
-        + "completely.\n\n"
+        + "completely.\n"
+        + colorRangeItem + "\n\n"
         + "Mismatched color space settings distort colors before AutoLUT ever sees them. 720x480 is correct "
         + "even for the N64: NTSC signal timings are fixed, so capture cards digitize any NTSC source to "
         + "720x480 regardless of the console's internal resolution.");
+
+    private const string PaletteColorRangeItem =
+        "4. Leave the source's Color Range as it is for now. Step 4 walks you through the app's check screen, "
+        + "which tells you whether to change it.";
+
+    private const string GzColorRangeItem =
+        "4. Leave the source's Color Range as it is for now. If it's wrong, AutoLUT warns about washed-out or "
+        + "crushed colors when you generate and tells you which way to set it.";
 
     private static readonly HelpStep CropScaleStep = new(
         "OBS setup part 2 (optional, feel free to skip)",
@@ -54,6 +65,22 @@ public partial class HelpWizardViewModel : ObservableObject
         + ScreenshotTail,
         RequiredColorsNote + "The palette app's corner label in the screenshots is fine - just keep the center of the screen clear.");
 
+    // Palette apps only: they open on a setup check screen, toggled with B.
+    private static readonly HelpStep SetupCheckStep = new(
+        "Check your color range",
+        "The app opens on a setup check screen. The top half is black with four dark boxes (8, 16, 24, 32). "
+        + "The bottom half is white with four light boxes (247, 239, 231, 223). Look at it in the OBS preview, "
+        + "with the Apply LUT filter off if you already have one:\n"
+        + "1. All 8 boxes visible, black half black, white half white: your color range is right.\n"
+        + "2. Boxes 8 and 16 (or 247 and 239) blend into the background: the capture is crushed. Set Color Range "
+        + "in the capture source's Properties to Full.\n"
+        + "3. Every box is visible, but the black half looks dark gray next to OBS's black canvas and the white "
+        + "half looks dim: the capture is washed out. Set Color Range to Partial.",
+        "Not sure? Try each Color Range option and keep the one with the darkest black and brightest white where all "
+        + "8 boxes still show. If boxes vanish on every option, recheck the custom 720x480 resolution from step 1. "
+        + "Press B to go to the colors. B brings the check screen back at any time and returns you to the same "
+        + "color. Don't include the check screen in your calibration screenshots.");
+
     private static readonly HelpStep GzScreenshotStep = new(
         "Screenshot all 39 colors",
         "Load each savestate and screenshot it - 39 colors, any order, any filenames. " + ScreenshotTail,
@@ -72,30 +99,32 @@ public partial class HelpWizardViewModel : ObservableObject
 
     private static readonly HelpStep[] WiiSteps =
     [
-        ObsStep,
+        ObsStep(PaletteColorRangeItem),
         CropScaleStep,
         new("Get the calibration colors onto your console", OperatingSystem.IsBrowser()
             ? "Use the download button below to get the app, extract the zip to the root of your SD card, then launch it from the Homebrew Channel."
             : "Use Copy app to clipboard below and paste it into the root of your SD card - it pastes as an apps folder "
               + "that merges with the apps folder already on your card. Then launch it from the Homebrew Channel."),
+        SetupCheckStep,
         PaletteScreenshotStep,
         LoadStep,
     ];
 
     private static readonly HelpStep[] N64Steps =
     [
-        ObsStep,
+        ObsStep(PaletteColorRangeItem),
         CropScaleStep,
         new("Get the calibration colors onto your console", OperatingSystem.IsBrowser()
             ? "Use the download button below to get the ROM, put it on your flashcart's SD card and boot it."
             : "Use Copy ROM to clipboard below and paste it wherever you see fit on your flashcart's SD card, then boot it."),
+        SetupCheckStep,
         PaletteScreenshotStep,
         LoadStep,
     ];
 
     private static readonly HelpStep[] GzSteps =
     [
-        ObsStep,
+        ObsStep(GzColorRangeItem),
         CropScaleStep,
         new("Get the calibration colors onto your console", OperatingSystem.IsBrowser()
             ? "Use the download button matching your game version (1.0 or 1.2) below and copy the folder to your SD card."
