@@ -120,14 +120,13 @@ public partial class HelpWizardViewModel : ObservableObject
     private static readonly HelpStep LoadStep = new(
         "Load and generate",
         "Click Load images below - or drag and drop your screenshots anywhere onto this guide - then click Generate LUT in the bottom left.",
-        Action: StepAction.LoadImages);
+        "Screenshots from an earlier run stay loaded - click Reset first so they don't mix with the new ones.",
+        StepAction.LoadImages);
 
     private static readonly HelpStep SaveStep = new(
         "Save and apply in OBS",
-        "Close this guide to check the corrected preview - it matches exactly what OBS will render. Then click Save "
-        + "LUT.png in the bottom left, and in OBS right-click your capture source, Filters, add Apply LUT, and select "
-        + "the file.",
-        "Show Corrected Image in the bottom left switches the preview between the raw capture and the corrected one.");
+        "Click Save LUT.png in the bottom left, then in OBS right-click your capture source, Filters, add Apply LUT, "
+        + "and select the file.");
 
     // The get-colors step differs per platform: web offers the download right in the guide,
     // desktop bundles the savestates and points at the GitHub releases page for the rest.
@@ -188,8 +187,24 @@ public partial class HelpWizardViewModel : ObservableObject
 
     /// <summary>Null while the platform choice page shows.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsPlatformPage), nameof(NextLabel))]
+    [NotifyPropertyChangedFor(nameof(IsPlatformPage), nameof(NextLabel), nameof(PickerStep))]
     private GuideStepItem? _currentStep;
+
+    /// <summary>
+    /// The step picker's selection. Ctrl+click on the selected item clears a ListBox selection,
+    /// which would otherwise send the user back to the platform page and lose their place.
+    /// </summary>
+    public GuideStepItem? PickerStep
+    {
+        get => CurrentStep;
+        set
+        {
+            if (value is not null)
+            {
+                CurrentStep = value;
+            }
+        }
+    }
 
     public bool IsPlatformPage => CurrentStep is null;
 
@@ -210,6 +225,7 @@ public partial class HelpWizardViewModel : ObservableObject
         if (step.Number == Steps.Length)
         {
             IsOpen = false;
+            CurrentStep = null;
         }
         else
         {
@@ -234,7 +250,8 @@ public partial class HelpWizardViewModel : ObservableObject
     public void MovePastGenerateStep()
     {
         int index = Array.FindIndex(Steps, step => step.ShowLoadImages);
-        if (index >= 0 && index + 1 < Steps.Length)
+        bool alreadyPast = CurrentStep is { } current && current.Number > index + 1;
+        if (index >= 0 && index + 1 < Steps.Length && !alreadyPast)
         {
             CurrentStep = Steps[index + 1];
         }

@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using AutoLUT.App.ViewModels;
 
 namespace AutoLUT.App.Views;
@@ -18,6 +19,16 @@ public partial class MainView : UserControl
         // DragOver/Drop are attached routed events, so they cannot be wired from XAML.
         DragDrop.AddDragOverHandler(HelpGuide, OnGuideDragOver);
         DragDrop.AddDropHandler(HelpGuide, OnGuideDrop);
+
+        // The view model ignores the cleared selection from a Ctrl+click, but the picker still
+        // shows nothing selected until it is given the current step again.
+        StepPicker.SelectionChanged += (_, _) =>
+        {
+            if (StepPicker.SelectedItem is null && DataContext is MainWindowViewModel { Help.CurrentStep: { } step })
+            {
+                Dispatcher.UIThread.Post(() => StepPicker.SelectedItem = step);
+            }
+        };
 
         // The scroll viewer is shared by every step, so without this a new step opens at the
         // previous step's scroll offset instead of its own top.

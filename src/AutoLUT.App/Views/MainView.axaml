@@ -127,7 +127,7 @@
             <DockPanel MaxWidth="680">
               <TextBlock DockPanel.Dock="Top" Text="How to use AutoLUT" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10" />
 
-              <ListBox DockPanel.Dock="Top" ItemsSource="{Binding Help.Steps}" SelectedItem="{Binding Help.CurrentStep}"
+              <ListBox x:Name="StepPicker" DockPanel.Dock="Top" ItemsSource="{Binding Help.Steps}" SelectedItem="{Binding Help.PickerStep}"
                        IsVisible="{Binding !Help.IsPlatformPage}" Background="Transparent" Margin="0,0,0,10">
                 <ListBox.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -228,7 +228,8 @@
                           </ItemsControl>
                           <TextBlock Text="{Binding BodyAfterItems}" TextWrapping="Wrap"
                                      IsVisible="{Binding BodyAfterItems, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                          <ItemsControl ItemsSource="{Binding Settings}">
+                          <ItemsControl ItemsSource="{Binding Settings}"
+                                        IsVisible="{Binding Settings, Converter={x:Static ObjectConverters.IsNotNull}}">
                             <ItemsControl.ItemTemplate>
                               <DataTemplate x:DataType="vm:HelpWizardViewModel+SettingsGroup">
                                 <Border Background="#1E1E1E" BorderBrush="#484848" BorderThickness="1" CornerRadius="4"
@@ -280,8 +281,11 @@
                             <Button Content="Copy 1.2 savestates" Tag="1.2" Click="OnGzCopyClick" />
                             <Button Content="Open folder" Tag="savestates" Click="OnBundleFolderClick" />
                           </StackPanel>
-                          <Button Content="Load images..." Click="OnLoadImagesClick"
-                                  IsVisible="{Binding ShowLoadImages}" />
+                          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowLoadImages}">
+                            <Button Content="Load images..." Click="OnLoadImagesClick" />
+                            <Button Content="Reset"
+                                    Command="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).ResetCommand}" />
+                          </StackPanel>
                           <TextBlock Text="{Binding Note}" TextWrapping="Wrap"
                                      IsVisible="{Binding HasPrimaryNote}" />
                           <TextBlock Text="{Binding Note}" Foreground="#999999" TextWrapping="Wrap"

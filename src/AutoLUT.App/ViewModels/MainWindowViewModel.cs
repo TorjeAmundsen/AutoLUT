@@ -318,10 +318,17 @@ public partial class MainWindowViewModel : ObservableObject
         _lutGeneration++;
         HasLut = true;
         ShowCorrected = true;
-        Help.MovePastGenerateStep();
+        // Both warnings mean the captures need redoing, so pointing the user at saving would be wrong.
+        bool mustRecapture = result.ColorRangeWarning is not null || result.ColorSpaceWarning is not null;
+        if (!mustRecapture)
+        {
+            Help.MovePastGenerateStep();
+        }
+
+        string next = mustRecapture ? "" : " Next: click Save LUT.png.";
         StatusText = result.Diagnostics is { } d
-            ? $"Finished - mean ΔE {d.MeanDeltaE:F4}, p95 {d.P95DeltaE:F4}, {d.InlierCount}/{d.TotalCount} inliers. Next: click Save LUT.png."
-            : "Finished. Next: click Save LUT.png.";
+            ? $"Finished - mean ΔE {d.MeanDeltaE:F4}, p95 {d.P95DeltaE:F4}, {d.InlierCount}/{d.TotalCount} inliers.{next}"
+            : $"Finished.{next}";
         await UpdatePreviewAsync();
     }
 
