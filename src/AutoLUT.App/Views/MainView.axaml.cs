@@ -1,10 +1,8 @@
-using System.Collections.Specialized;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using Avalonia.Threading;
 using AutoLUT.App.ViewModels;
 
 namespace AutoLUT.App.Views;
@@ -21,17 +19,17 @@ public partial class MainView : UserControl
         DragDrop.AddDragOverHandler(HelpGuide, OnGuideDragOver);
         DragDrop.AddDropHandler(HelpGuide, OnGuideDrop);
 
-        // A newly revealed step appears below the fold once the list outgrows the pane,
-        // so scroll to it after the layout pass has sized it.
+        // The scroll viewer is shared by every step, so without this a new step opens at the
+        // previous step's scroll offset instead of its own top.
         DataContextChanged += (_, _) =>
         {
             if (DataContext is MainWindowViewModel vm)
             {
-                vm.Help.VisibleSteps.CollectionChanged += (_, args) =>
+                vm.Help.PropertyChanged += (_, args) =>
                 {
-                    if (args.Action == NotifyCollectionChangedAction.Add)
+                    if (args.PropertyName == nameof(HelpWizardViewModel.CurrentStep))
                     {
-                        Dispatcher.UIThread.Post(GuideScroll.ScrollToEnd, DispatcherPriority.Background);
+                        GuideScroll.ScrollToHome();
                     }
                 };
             }

@@ -1,50 +1,78 @@
-using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AutoLUT.App.ViewModels;
 
-/// <summary>State and content for the step-through "How to use" wizard overlay.</summary>
+/// <summary>State and content for the step-through "How to use" guide.</summary>
 public partial class HelpWizardViewModel : ObservableObject
 {
-    private sealed record HelpStep(string Title, string Body, string? Note = null);
+    /// <summary>The buttons a step shows under its body text.</summary>
+    internal enum StepAction
+    {
+        None,
+        GetColors,
+        LoadImages,
+    }
 
-    // Item 4 differs per platform: the palette apps have a setup check step for the
-    // capture source's Color Range, gz users only get AutoLUT's warning after generating.
-    private static HelpStep ObsStep(string colorRangeItem) => new(
-        "OBS setup part 1 - do this first",
+    internal sealed record HelpStep(
+        string Title,
+        string Body,
+        string? Note = null,
+        StepAction Action = StepAction.None,
+        bool IsObsSetup = false,
+        IReadOnlyList<SettingsGroup>? Settings = null,
+        IReadOnlyList<string>? Items = null,
+        string? BodyAfterItems = null);
+
+    /// <summary>One OBS dialog and the settings to change in it.</summary>
+    public sealed record SettingsGroup(string Location, IReadOnlyList<SettingRow> Rows, string? Note = null);
+
+    public sealed record SettingRow(string Name, string Value, string? Note = null);
+
+    public sealed record NumberedItem(string Number, string Text);
+
+    // The source's Color Range row differs per platform: the palette apps have a setup check step for it,
+    // gz users only get AutoLUT's warning after generating.
+    private static HelpStep ObsStep(string colorRangeNote) => new(
+        "OBS setup - do this first",
         "Incorrect OBS settings WILL force you to re-take all captures if you want optimal and accurate "
         + "results, so follow these instructions closely.",
-        "1. In Settings, Advanced, Video set Color Space to Rec. 709 and Color Range to Limited, since this "
-        + "is what modern streaming sites expect.\n"
-        + "2. In your capture source's Properties, set Color Space to Rec. 601 if that option exists, since "
-        + "this is the color space the Wii and N64 output.\n"
-        + "3. Also in the source's Properties, set Resolution/FPS Type to Custom and Resolution to 720x480 - "
-        + "some capture card drivers (for example Elgato) otherwise force their own color range conversion on "
-        + "top of OBS's, doubling any mismatch; a custom resolution makes OBS take over the conversion "
-        + "completely.\n"
-        + colorRangeItem + "\n\n"
-        + "Mismatched color space settings distort colors before AutoLUT ever sees them. 720x480 is correct "
-        + "even for the N64: NTSC signal timings are fixed, so capture cards digitize any NTSC source to "
-        + "720x480 regardless of the console's internal resolution.");
+        "Mismatched color space settings distort colors before AutoLUT ever sees them.",
+        IsObsSetup: true,
+        Settings:
+        [
+            new("OBS Settings → Advanced → Video",
+                [new("Color Space", "Rec. 709"), new("Color Range", "Limited")],
+                "This is what modern streaming sites expect."),
+            new("Your capture source's Properties",
+            [
+                new("Color Space", "Rec. 601",
+                    "If that option exists. This is the color space the Wii and N64 output."),
+                new("Resolution/FPS Type", "Custom"),
+                new("Resolution", "720x480",
+                    "Some capture card drivers (for example Elgato) otherwise force their own color range conversion "
+                    + "on top of OBS's, doubling any mismatch; a custom resolution makes OBS take over the conversion "
+                    + "completely. 720x480 is correct even for the N64: NTSC signal timings are fixed, so capture "
+                    + "cards digitize any NTSC source to 720x480 regardless of the console's internal resolution."),
+                new("Color Range", "Leave as it is for now", colorRangeNote),
+            ]),
+        ]);
 
-    private const string PaletteColorRangeItem =
-        "4. Leave the source's Color Range as it is for now. Step 4 walks you through the app's check screen, "
-        + "which tells you whether to change it.";
+    private const string PaletteColorRangeNote =
+        "The \"Check your color range\" step walks you through the app's check screen, which tells you whether to "
+        + "change it.";
 
-    private const string GzColorRangeItem =
-        "4. Leave the source's Color Range as it is for now. If it's wrong, AutoLUT warns about washed-out or "
-        + "crushed colors when you generate and tells you which way to set it.";
+    private const string GzColorRangeNote =
+        "If it's wrong, AutoLUT warns about washed-out or crushed colors when you generate and tells you which way "
+        + "to set it.";
 
     private static readonly HelpStep CropScaleStep = new(
-        "OBS setup part 2 (optional, feel free to skip)",
+        "Crop and scale your game (optional)",
         "Not relevant to AutoLUT itself, but recommended regardless: to crop and scale a 4:3 game optimally, "
         + "never use OBS' transform features (drag to scale, alt-drag to crop) - use filters for everything, "
-        + "ordered:\n"
-        + "1. Apply LUT\n"
-        + "2. Crop/Pad\n"
-        + "3. Scaling/Aspect Ratio\n\n"
-        + "Set Crop/Pad per game with the game running, since games render at different resolutions "
+        + "ordered:",
+        Items: ["Apply LUT", "Crop/Pad", "Scaling/Aspect Ratio"],
+        BodyAfterItems: "Set Crop/Pad per game with the game running, since games render at different resolutions "
         + "(basically none use 640x480 or 320x240).\n\n"
         + "Set Scaling/Aspect Ratio to the 4:3 resolution that fills your canvas vertically - 1440x1080 on a "
         + "1920x1080 canvas - not just '4:3', with scale filtering on Area. Point also works for a really "
@@ -70,13 +98,16 @@ public partial class HelpWizardViewModel : ObservableObject
         "Check your color range",
         "The app opens on a setup check screen. The top half is black with four dark boxes (8, 16, 24, 32). "
         + "The bottom half is white with four light boxes (247, 239, 231, 223). Look at it in the OBS preview, "
-        + "with the Apply LUT filter off if you already have one:\n"
-        + "1. All 8 boxes visible, black half black, white half white: your color range is right.\n"
-        + "2. Boxes 8 and 16 (or 247 and 239) blend into the background: the capture is crushed. Set Color Range "
-        + "in the capture source's Properties to Full.\n"
-        + "3. Every box is visible, but the black half looks dark gray next to OBS's black canvas and the white "
-        + "half looks dim: the capture is washed out. Set Color Range to Partial.",
-        "Not sure? Try each Color Range option and keep the one with the darkest black and brightest white where all "
+        + "with the Apply LUT filter off if you already have one:",
+        Items:
+        [
+            "All 8 boxes visible, black half black, white half white: your color range is right.",
+            "Boxes 8 and 16 (or 247 and 239) blend into the background: the capture is crushed. Set Color Range "
+            + "in the capture source's Properties to Full.",
+            "Every box is visible, but the black half looks dark gray next to OBS's black canvas and the white "
+            + "half looks dim: the capture is washed out. Set Color Range to Partial.",
+        ],
+        Note: "Not sure? Try each Color Range option and keep the one with the darkest black and brightest white where all "
         + "8 boxes still show. If boxes vanish on every option, recheck the custom 720x480 resolution from step 1. "
         + "Press B to go to the colors. B brings the check screen back at any time and returns you to the same "
         + "color. Don't include the check screen in your calibration screenshots.");
@@ -86,52 +117,62 @@ public partial class HelpWizardViewModel : ObservableObject
         "Load each savestate and screenshot it - 39 colors, any order, any filenames. " + ScreenshotTail,
         RequiredColorsNote + "The game HUD in the screenshots is fine - just keep the center of the screen clear.");
 
-    // The guide auto-closes when Generate succeeds, so everything after generation
-    // (check the preview, save, apply in OBS) lives in this step's note.
     private static readonly HelpStep LoadStep = new(
         "Load and generate",
         "Click Load images below - or drag and drop your screenshots anywhere onto this guide - then click Generate LUT in the bottom left.",
-        "When generation finishes, this guide closes and the corrected preview appears - it matches exactly what OBS "
-        + "will render. Then Save LUT.png and in OBS: right-click your capture source, Filters, add Apply LUT, and select the file.");
+        Action: StepAction.LoadImages);
 
-    // The get-colors step differs per platform: web offers the download right in the wizard,
+    private static readonly HelpStep SaveStep = new(
+        "Save and apply in OBS",
+        "Close this guide to check the corrected preview - it matches exactly what OBS will render. Then click Save "
+        + "LUT.png in the bottom left, and in OBS right-click your capture source, Filters, add Apply LUT, and select "
+        + "the file.",
+        "Show Corrected Image in the bottom left switches the preview between the raw capture and the corrected one.");
+
+    // The get-colors step differs per platform: web offers the download right in the guide,
     // desktop bundles the savestates and points at the GitHub releases page for the rest.
 
     private static readonly HelpStep[] WiiSteps =
     [
-        ObsStep(PaletteColorRangeItem),
-        CropScaleStep,
+        ObsStep(PaletteColorRangeNote),
         new("Get the calibration colors onto your console", OperatingSystem.IsBrowser()
             ? "Use the download button below to get the app, extract the zip to the root of your SD card, then launch it from the Homebrew Channel."
             : "Use Copy app to clipboard below and paste it into the root of your SD card - it pastes as an apps folder "
-              + "that merges with the apps folder already on your card. Then launch it from the Homebrew Channel."),
+              + "that merges with the apps folder already on your card. Then launch it from the Homebrew Channel.",
+            Action: StepAction.GetColors),
         SetupCheckStep,
         PaletteScreenshotStep,
         LoadStep,
+        SaveStep,
+        CropScaleStep,
     ];
 
     private static readonly HelpStep[] N64Steps =
     [
-        ObsStep(PaletteColorRangeItem),
-        CropScaleStep,
+        ObsStep(PaletteColorRangeNote),
         new("Get the calibration colors onto your console", OperatingSystem.IsBrowser()
             ? "Use the download button below to get the ROM, put it on your flashcart's SD card and boot it."
-            : "Use Copy ROM to clipboard below and paste it wherever you see fit on your flashcart's SD card, then boot it."),
+            : "Use Copy ROM to clipboard below and paste it wherever you see fit on your flashcart's SD card, then boot it.",
+            Action: StepAction.GetColors),
         SetupCheckStep,
         PaletteScreenshotStep,
         LoadStep,
+        SaveStep,
+        CropScaleStep,
     ];
 
     private static readonly HelpStep[] GzSteps =
     [
-        ObsStep(GzColorRangeItem),
-        CropScaleStep,
+        ObsStep(GzColorRangeNote),
         new("Get the calibration colors onto your console", OperatingSystem.IsBrowser()
             ? "Use the download button matching your game version (1.0 or 1.2) below and copy the folder to your SD card."
             : "Use the copy button matching your game version (1.0 or 1.2) below and paste the folder wherever "
-              + "you see fit on your SD card, then load the states with gz."),
+              + "you see fit on your SD card, then load the states with gz.",
+            Action: StepAction.GetColors),
         GzScreenshotStep,
         LoadStep,
+        SaveStep,
+        CropScaleStep,
     ];
 
     [ObservableProperty]
@@ -141,106 +182,104 @@ public partial class HelpWizardViewModel : ObservableObject
     /// <summary>Label for the bottom-bar button that toggles the guide.</summary>
     public string ToggleLabel => IsOpen ? "Close guide" : "Open guide";
 
-    // 0 = platform-select page, 1..Steps.Length = number of revealed steps.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NextLabel))]
+    private GuideStepItem[] _steps = [];
+
+    /// <summary>Null while the platform choice page shows.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPlatformPage), nameof(NextLabel))]
-    private int _stepIndex;
+    private GuideStepItem? _currentStep;
 
-    private HelpStep[] _steps = [];
-    private string _platform = "";
+    public bool IsPlatformPage => CurrentStep is null;
 
-    /// <summary>Steps revealed so far - they stack up as the user clicks Next; Back hides the last one.</summary>
-    public ObservableCollection<GuideStepItem> VisibleSteps { get; } = [];
-
-    public bool IsPlatformPage => StepIndex == 0;
-
-    public string NextLabel => StepIndex == _steps.Length ? "Done" : "Next";
-
-    /// <summary>Opened via the main view model, which force-clears loaded images first.</summary>
-    public void Open()
-    {
-        StepIndex = 0;
-        VisibleSteps.Clear();
-        IsOpen = true;
-    }
+    public string NextLabel => CurrentStep?.Number == Steps.Length ? "Done" : "Next";
 
     [RelayCommand]
-    private void Back()
-    {
-        StepIndex--;
-        if (VisibleSteps.Count > 0)
-        {
-            VisibleSteps.RemoveAt(VisibleSteps.Count - 1);
-        }
-    }
+    private void Back() =>
+        CurrentStep = CurrentStep is { Number: > 1 } step ? Steps[step.Number - 2] : null;
 
     [RelayCommand]
     private void Next()
     {
-        if (StepIndex == _steps.Length)
+        if (CurrentStep is not { } step)
+        {
+            return;
+        }
+
+        if (step.Number == Steps.Length)
         {
             IsOpen = false;
         }
         else
         {
-            StepIndex++;
-            RevealStep();
+            CurrentStep = Steps[step.Number];
         }
     }
 
     [RelayCommand]
     private void SelectPlatform(string platform)
     {
-        _platform = platform;
-        _steps = platform switch
+        var steps = platform switch
         {
             "wii" => WiiSteps,
             "n64" => N64Steps,
             _ => GzSteps,
         };
-        VisibleSteps.Clear();
-        StepIndex = 1;
-        RevealStep();
+        Steps = steps.Select((step, i) => new GuideStepItem(i + 1, steps.Length, step, platform)).ToArray();
+        CurrentStep = Steps[0];
     }
 
-    private void RevealStep()
+    /// <summary>Called after a successful generate, so the guide moves on without the user clicking Next.</summary>
+    public void MovePastGenerateStep()
     {
-        int index = VisibleSteps.Count + 1;
-        var step = _steps[index - 1];
-        VisibleSteps.Add(new GuideStepItem(index, _steps.Length, step.Title, step.Body, step.Note, _platform));
+        int index = Array.FindIndex(Steps, step => step.ShowLoadImages);
+        if (index >= 0 && index + 1 < Steps.Length)
+        {
+            CurrentStep = Steps[index + 1];
+        }
     }
 
     /// <summary>
-    /// One revealed step in the guide; immutable, with the per-step button visibility
-    /// precomputed from the step index and platform. The artifact buttons live on the
-    /// get-colors step (index 3): the browser downloads directly (gz per version), the
+    /// One step in the guide; immutable, with the button visibility precomputed from the
+    /// step's action and platform. The browser downloads directly (gz per version), the
     /// desktop copies the bundled artifact to the clipboard or opens its folder.
     /// </summary>
     public sealed class GuideStepItem
     {
-        internal GuideStepItem(int index, int total, string title, string body, string? note, string platform)
+        internal GuideStepItem(int number, int total, HelpStep step, string platform)
         {
-            Header = $"Step {index} of {total}: {title}";
-            Body = body;
-            Note = note;
-            IsObsSetup = index == 1;
+            Number = number;
+            Title = step.Title;
+            Header = $"Step {number} of {total}: {step.Title}";
+            Body = step.Body;
+            Note = step.Note;
+            Settings = step.Settings;
+            Items = step.Items?.Select((text, i) => new NumberedItem($"{i + 1}.", text)).ToArray();
+            BodyAfterItems = step.BodyAfterItems;
+            IsObsSetup = step.IsObsSetup;
 
-            bool isDownloadStep = index == 3;
+            bool isGetColors = step.Action == StepAction.GetColors;
             bool isBrowser = OperatingSystem.IsBrowser();
-            ShowWiiDownload = isDownloadStep && isBrowser && platform == "wii";
-            ShowN64Download = isDownloadStep && isBrowser && platform == "n64";
-            ShowGzDownloads = isDownloadStep && isBrowser && platform == "gz";
-            ShowWiiBundle = isDownloadStep && !isBrowser && platform == "wii";
-            ShowN64Bundle = isDownloadStep && !isBrowser && platform == "n64";
-            ShowGzBundle = isDownloadStep && !isBrowser && platform == "gz";
-            ShowLoadImages = index == total;
+            ShowWiiDownload = isGetColors && isBrowser && platform == "wii";
+            ShowN64Download = isGetColors && isBrowser && platform == "n64";
+            ShowGzDownloads = isGetColors && isBrowser && platform == "gz";
+            ShowWiiBundle = isGetColors && !isBrowser && platform == "wii";
+            ShowN64Bundle = isGetColors && !isBrowser && platform == "n64";
+            ShowGzBundle = isGetColors && !isBrowser && platform == "gz";
+            ShowLoadImages = step.Action == StepAction.LoadImages;
         }
 
+        public int Number { get; }
+        public string Title { get; }
         public string Header { get; }
         public string Body { get; }
         public string? Note { get; }
+        public IReadOnlyList<SettingsGroup>? Settings { get; }
+        public IReadOnlyList<NumberedItem>? Items { get; }
+        public string? BodyAfterItems { get; }
 
-        /// <summary>The OBS step's note is full instructions, shown as normal text; other steps' notes are subtext.</summary>
+        /// <summary>The OBS step's note is part of its instructions, so it shows as normal text; other steps' notes are subtext.</summary>
         public bool HasPrimaryNote => Note is not null && IsObsSetup;
 
         public bool HasSubtleNote => Note is not null && !IsObsSetup;

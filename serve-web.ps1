@@ -2,12 +2,20 @@ $ErrorActionPreference = "Stop"
 
 # Builds the Release WebAssembly bundle and serves it locally - same content the
 # GitHub Pages deploy produces (including the per-version savestate zips). Requires Python 3.
+# Pass --aot to match the deploy's compilation too. Without it the app runs on the
+# interpreter, which publishes much faster but runs the image processing much slower.
 
 $port = 8080
 $site = "$PSScriptRoot/src/AutoLUT.Browser/bin/Release/net10.0-browser/publish/wwwroot"
 
-Write-Host "Publishing browser app (Release)..."
-dotnet publish "$PSScriptRoot/src/AutoLUT.Browser" -c Release | Out-Host
+$aot = $args -contains "--aot"
+$publishArgs = @("$PSScriptRoot/src/AutoLUT.Browser", "-c", "Release")
+if (-not $aot) {
+    $publishArgs += "/p:RunAOTCompilation=false"
+}
+
+Write-Host "Publishing browser app (Release, $(if ($aot) { 'AOT' } else { 'interpreter' }))..."
+dotnet publish @publishArgs | Out-Host
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Publish failed with exit code $LASTEXITCODE"
     exit $LASTEXITCODE
