@@ -2,7 +2,7 @@ using AutoLUT.Core.ColorScience;
 
 namespace AutoLUT.Core.Fitting;
 
-/// <summary>output = Curves(M · [r, g, b, 1]) on sRGB-encoded values.</summary>
+/// <summary>output = Curves(M * [r, g, b, 1]) on sRGB-encoded values.</summary>
 public sealed class AffineCurvesTransform : IColorTransform
 {
     private readonly float[] _matrix; // row-major 3x4

@@ -16,7 +16,7 @@ public enum UpdateChoice { Update, Skip, Later, Never, Failed }
 /// </summary>
 public sealed class UpdateDialog : Window
 {
-    private readonly Func<IProgress<double>, Task> _apply;
+    private readonly Func<IProgress<double>, CancellationToken, Task> _apply;
     private readonly StackPanel _buttonPanel;
     private readonly StackPanel _progressPanel;
     private readonly ProgressBar _progressBar;
@@ -24,9 +24,22 @@ public sealed class UpdateDialog : Window
 
     private UpdateChoice _result = UpdateChoice.Later;
 
-    private UpdateDialog(UpdateInfo info, string currentVersion, Func<IProgress<double>, Task> apply)
+    /// <summary>Non-null while a download runs; closing the dialog cancels it.</summary>
+    private CancellationTokenSource? _downloadCancellation;
+
+    private UpdateDialog(UpdateInfo info, string currentVersion, Func<IProgress<double>, CancellationToken, Task> apply)
     {
         _apply = apply;
+        // Closing mid-download must abort it: left running, a successful download would exit
+        // the app out from under the user, and a failure would report into a closed window.
+        Closing += (_, _) =>
+        {
+            if (_downloadCancellation is { } cancellation)
+            {
+                _result = UpdateChoice.Later;
+                cancellation.Cancel();
+            }
+        };
 
         Title = "Update available";
         Width = 460;
@@ -82,10 +95,11 @@ public sealed class UpdateDialog : Window
         };
         AddButton("Update", UpdateChoice.Update, isDefault: true);
         AddButton("Skip this version", UpdateChoice.Skip);
-        AddButton("Remind me later", UpdateChoice.Later);
+        AddButton("Remind me later", UpdateChoice.Later, isCancel: true);
         AddButton("Don't ask again", UpdateChoice.Never);
+        Opened += (_, _) => _buttonPanel.Children[0].Focus();
 
-        _statusText = new TextBlock { Text = "Downloading update..." };
+        _statusText = new TextBlock { Text = "Downloading update...", TextWrapping = TextWrapping.Wrap };
         _progressBar = new ProgressBar
         {
             Minimum = 0,
@@ -109,7 +123,7 @@ public sealed class UpdateDialog : Window
     }
 
     public static Task<UpdateChoice> Show(
-        Window owner, UpdateInfo info, string currentVersion, Func<IProgress<double>, Task> apply)
+        Window owner, UpdateInfo info, string currentVersion, Func<IProgress<double>, CancellationToken, Task> apply)
     {
         var dialog = new UpdateDialog(info, currentVersion, apply);
         var tcs = new TaskCompletionSource<UpdateChoice>();
@@ -129,13 +143,16 @@ public sealed class UpdateDialog : Window
         return tcs.Task;
     }
 
-    private void AddButton(string content, UpdateChoice choice, bool isDefault = false)
+    /// <summary>Enter clicks the default button and Escape the cancel one, wherever focus is.</summary>
+    private void AddButton(string content, UpdateChoice choice, bool isDefault = false, bool isCancel = false)
     {
         var button = new Button
         {
             Content = content,
             MinWidth = 72,
             HorizontalContentAlignment = HorizontalAlignment.Center,
+            IsDefault = isDefault,
+            IsCancel = isCancel,
         };
         if (isDefault)
         {
@@ -167,12 +184,25 @@ public sealed class UpdateDialog : Window
     {
         _result = UpdateChoice.Update;
         _buttonPanel.IsVisible = false;
+        // Hidden buttons still answer Enter and Escape, which would restart the update or close
+        // the dialog mid-download, so they give the keys up.
+        foreach (var button in _buttonPanel.Children.OfType<Button>())
+        {
+            button.IsDefault = false;
+            button.IsCancel = false;
+        }
         _progressPanel.IsVisible = true;
 
+        using var cancellation = new CancellationTokenSource();
+        _downloadCancellation = cancellation;
         try
         {
-            await _apply(new Progress<double>(p => _progressBar.Value = p));
+            await _apply(new Progress<double>(p => _progressBar.Value = p), cancellation.Token);
             // Success exits the process inside _apply; nothing more runs here.
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // The user closed the dialog; there is no window left to report into.
         }
         catch (Exception ex)
         {
@@ -186,9 +216,16 @@ public sealed class UpdateDialog : Window
                 MinWidth = 72,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 Margin = new Thickness(0, 8, 0, 0),
+                IsDefault = true,
+                IsCancel = true,
             };
             close.Click += (_, _) => Close();
             _progressPanel.Children.Add(close);
+            close.Focus();
+        }
+        finally
+        {
+            _downloadCancellation = null;
         }
     }
 }

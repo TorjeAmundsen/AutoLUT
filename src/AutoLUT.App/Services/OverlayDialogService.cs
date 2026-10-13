@@ -11,6 +11,10 @@ public partial class OverlayDialogService : ObservableObject, IDialogService
 {
     private TaskCompletionSource? _dismissed;
 
+    /// <summary>Completes when the last requested warning is dismissed. Warnings queue behind it:
+    /// the overlay shows one at a time, and replacing an open one would strand its caller.</summary>
+    private Task _queueTail = Task.CompletedTask;
+
     [ObservableProperty]
     private bool _isOpen;
 
@@ -22,11 +26,19 @@ public partial class OverlayDialogService : ObservableObject, IDialogService
 
     public Task ShowWarningAsync(string title, string message)
     {
+        var shown = ShowAfterAsync(_queueTail, title, message);
+        _queueTail = shown;
+        return shown;
+    }
+
+    private async Task ShowAfterAsync(Task previous, string title, string message)
+    {
+        await previous;
         Title = title;
         Message = message;
-        IsOpen = true;
         _dismissed = new TaskCompletionSource();
-        return _dismissed.Task;
+        IsOpen = true;
+        await _dismissed.Task;
     }
 
     [RelayCommand]

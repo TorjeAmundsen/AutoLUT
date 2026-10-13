@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>AutoLUT - Before / After Results</title>
+        <style>
+            :root {
+                color-scheme: dark;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                font-family: system-ui, sans-serif;
+                background: #14161a;
+                color: #e6e8eb;
+                display: flex;
+                min-height: 100vh;
+            }
+            aside {
+                width: 200px;
+                flex: none;
+                border-right: 1px solid #2a2e35;
+                padding: 16px;
+            }
+            aside h1 {
+                font-size: 15px;
+                margin: 0 0 12px;
+            }
+            .user-btn {
+                display: block;
+                width: 100%;
+                text-align: left;
+                background: none;
+                border: 1px solid #2a2e35;
+                color: inherit;
+                padding: 8px 10px;
+                margin-bottom: 6px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            .user-btn:hover {
+                background: #1d2127;
+            }
+            .user-btn.active {
+                background: #2b6cb0;
+                border-color: #2b6cb0;
+            }
+            main {
+                flex: 1;
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .row {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            .pill {
+                background: none;
+                border: 1px solid #2a2e35;
+                color: inherit;
+                padding: 6px 12px;
+                border-radius: 999px;
+                cursor: pointer;
+                font-size: 13px;
+            }
+            .pill:hover {
+                background: #1d2127;
+            }
+            .pill.active {
+                background: #e6e8eb;
+                color: #14161a;
+                border-color: #e6e8eb;
+            }
+            .stage {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #0d0f12;
+                border: 1px solid #2a2e35;
+                border-radius: 8px;
+                min-height: 300px;
+                overflow: hidden;
+            }
+            .stage img {
+                max-width: 100%;
+                max-height: 80vh;
+                display: block;
+            }
+            .muted {
+                color: #8b929c;
+                font-size: 13px;
+            }
+            .label {
+                font-size: 13px;
+                color: #8b929c;
+                margin-right: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <aside>
+            <h1>AutoLUT results</h1>
+            <div id="users"></div>
+        </aside>
+        <main>
+            <div class="row" id="subjects"></div>
+            <div class="row" id="variants"></div>
+            <div class="stage" id="stage"><span class="muted">Pick a user</span></div>
+        </main>
+
+        <script>
+            const USERS = ["Kyle_Speedruns", "rqzz64"];
+
+            const VARIANTS = ["before", "after", "dolphin"];
+
+            const el = {
+                users: document.getElementById("users"),
+                subjects: document.getElementById("subjects"),
+                variants: document.getElementById("variants"),
+                stage: document.getElementById("stage"),
+            };
+
+            let state = { user: null, subjects: [], subjectIndex: 0, variant: "after" };
+
+            // Build the user list.
+            USERS.forEach((u) => {
+                const b = document.createElement("button");
+                b.className = "user-btn";
+                b.textContent = u;
+                b.onclick = () => selectUser(u, b);
+                el.users.appendChild(b);
+            });
+
+            async function selectUser(user, btn) {
+                document.querySelectorAll(".user-btn").forEach((x) => x.classList.remove("active"));
+                btn.classList.add("active");
+                el.stage.innerHTML = '<span class="muted">Loading...</span>';
+                el.subjects.innerHTML = "";
+                el.variants.innerHTML = "";
+
+                let manifest;
+                try {
+                    const res = await fetch(`${user}/manifest.json`, { cache: "no-cache" });
+                    manifest = await res.json();
+                } catch (e) {
+                    el.stage.innerHTML = `<span class="muted">No manifest.json found in /${user}/</span>`;
+                    return;
+                }
+
+                state = { user, subjects: manifest.subjects || [], subjectIndex: 0, variant: "after" };
+                preloadAll(); // pre-load every image for this user
+                renderSubjects();
+                renderVariants();
+                show();
+            }
+
+            function preloadAll() {
+                state.subjects.forEach((s) => {
+                    VARIANTS.forEach((v) => {
+                        if (s[v]) {
+                            const img = new Image();
+                            img.src = `${state.user}/${s[v]}`;
+                        }
+                    });
+                });
+            }
+
+            function renderSubjects() {
+                el.subjects.innerHTML = "";
+                if (state.subjects.length <= 1) return; // no selector needed for a single subject
+                const lbl = document.createElement("span");
+                lbl.className = "label";
+                lbl.textContent = "Subject:";
+                el.subjects.appendChild(lbl);
+                state.subjects.forEach((s, i) => {
+                    const b = document.createElement("button");
+                    b.className = "pill" + (i === state.subjectIndex ? " active" : "");
+                    b.textContent = s.label || `#${i + 1}`;
+                    b.onclick = () => {
+                        state.subjectIndex = i;
+                        renderSubjects();
+                        renderVariants();
+                        show();
+                    };
+                    el.subjects.appendChild(b);
+                });
+            }
+
+            function renderVariants() {
+                el.variants.innerHTML = "";
+                const subj = state.subjects[state.subjectIndex];
+                if (!subj) return;
+                VARIANTS.forEach((v) => {
+                    if (!subj[v]) return; // hide variant this subject doesn't have (e.g. no dolphin)
+                    const b = document.createElement("button");
+                    b.className = "pill" + (v === state.variant ? " active" : "");
+                    b.textContent = v;
+                    b.onclick = () => {
+                        state.variant = v;
+                        renderVariants();
+                        show();
+                    };
+                    el.variants.appendChild(b);
+                });
+            }
+
+            function show() {
+                const subj = state.subjects[state.subjectIndex];
+                if (!subj) {
+                    el.stage.innerHTML = '<span class="muted">No subjects</span>';
+                    return;
+                }
+                let variant = state.variant;
+                if (!subj[variant]) variant = VARIANTS.find((v) => subj[v]); // fall back to first available
+                state.variant = variant;
+                const img = new Image();
+                img.src = `${state.user}/${subj[variant]}`;
+                img.onerror = () => {
+                    el.stage.innerHTML = `<span class="muted">Missing: ${img.src}</span>`;
+                };
+                el.stage.innerHTML = "";
+                el.stage.appendChild(img);
+            }
+        </script>
+    </body>
+</html>

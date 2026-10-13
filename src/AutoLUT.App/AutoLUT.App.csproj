@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\icon.png" />
+    <AvaloniaResource Include="Assets\setup-check-reference.png" />
   </ItemGroup>
 
   <ItemGroup>

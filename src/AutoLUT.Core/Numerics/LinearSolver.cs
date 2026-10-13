@@ -2,7 +2,7 @@ namespace AutoLUT.Core.Numerics;
 
 public static class LinearSolver
 {
-    /// <summary>Solves A·x = b via Gaussian elimination with partial pivoting. Mutates both arguments.</summary>
+    /// <summary>Solves A*x = b via Gaussian elimination with partial pivoting. Mutates both arguments.</summary>
     public static double[] Solve(double[,] a, double[] b)
     {
         int n = b.Length;

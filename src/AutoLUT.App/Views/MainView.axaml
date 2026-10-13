@@ -5,6 +5,7 @@
     x:Class="AutoLUT.App.Views.MainView"
     x:DataType="vm:MainWindowViewModel"
     Background="#2C2C2C"
+    DragDrop.AllowDrop="True"
 >
 
   <UserControl.Resources>
@@ -66,7 +67,8 @@
 
   <Panel>
 
-    <Grid ColumnDefinitions="300,*" RowDefinitions="*,Auto">
+    <!-- Disabled while an overlay is open (code-behind), so Tab cannot reach the controls behind it -->
+    <Grid x:Name="MainContent" ColumnDefinitions="300,*" RowDefinitions="*,Auto">
 
       <!-- Screenshot list -->
       <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto,*,Auto">
@@ -74,10 +76,11 @@
           <Button Grid.Column="0" Content="Load images..." Command="{Binding AddScreenshotsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
           <Button Grid.Column="1" Content="Reset" Command="{Binding ResetCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
         </Grid>
-        <ListBox Grid.Row="1" Margin="12,0,12,8" Background="#232323" ItemsSource="{Binding Screenshots}" SelectedItem="{Binding SelectedScreenshot}">
+        <!-- Delete removes the selected screenshot (code-behind) -->
+        <ListBox x:Name="ScreenshotList" Grid.Row="1" Margin="12,0,12,8" Background="#232323" ItemsSource="{Binding Screenshots}" SelectedItem="{Binding SelectedScreenshot}">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:ScreenshotItemViewModel">
-              <Grid ColumnDefinitions="Auto,*">
+              <Grid ColumnDefinitions="Auto,*,Auto">
                 <Border
                     Grid.Column="0"
                     Width="16"
@@ -93,6 +96,13 @@
                   <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
                   <TextBlock Foreground="{Binding StatusBrush}" FontSize="11" TextWrapping="Wrap"><Run Text="{Binding StatusPrefix}" /><Run Text="{Binding StatusHex}" FontFamily="Consolas,Menlo,DejaVu Sans Mono,monospace" /><Run Text="{Binding StatusSuffix}" /></TextBlock>
                 </StackPanel>
+                <!-- Inside the item template the DataContext is the screenshot, so the command
+                     comes from the view's view model and the screenshot is the parameter. -->
+                <Button Grid.Column="2" Content="x" Padding="6,0" Margin="6,0,0,0" VerticalAlignment="Top"
+                        Background="Transparent" BorderThickness="0" Foreground="#999999"
+                        ToolTip.Tip="Remove this screenshot (Delete)"
+                        Command="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).RemoveScreenshotCommand}"
+                        CommandParameter="{Binding}" />
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -116,14 +126,10 @@
             <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="8" />
           </Panel>
 
-          <!-- Guide: platform-select page, then one step at a time per platform.
-               Also a drag-and-drop target for loading screenshots (wired in code-behind).
-               Transparent background keeps the whole pane hit-testable for drops. -->
-          <DockPanel x:Name="HelpGuide" DragDrop.AllowDrop="True" Background="Transparent"
-                     IsVisible="{Binding Help.IsOpen}" Margin="24,20">
-            <!-- Cap the content width for readability; the outer DockPanel still spans the
-                 whole pane so every pixel stays a drop target. Stretch (the default) keeps
-                 the width constant across steps - Center would size to each step's content. -->
+          <!-- Guide: platform-select page, then one step at a time per platform. -->
+          <DockPanel IsVisible="{Binding Help.IsOpen}" Margin="24,20">
+            <!-- Cap the content width for readability. Stretch (the default) keeps the width
+                 constant across steps - Center would size to each step's content. -->
             <DockPanel MaxWidth="680">
               <TextBlock DockPanel.Dock="Top" Text="How to use AutoLUT" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10" />
 
@@ -149,7 +155,7 @@
 
               <!-- Bottom row pinned to the pane: GitHub link bottom-left, step navigation bottom-right -->
               <DockPanel DockPanel.Dock="Bottom" LastChildFill="False" Margin="0,10,0,0">
-                <Button DockPanel.Dock="Left" Content="Full instructions on GitHub" Click="OnReadmeLinkClick" />
+                <Button DockPanel.Dock="Left" Content="Full instructions on GitHub" Click="OnTutorialLinkClick" />
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8"
                             IsVisible="{Binding !Help.IsPlatformPage}">
                   <Button Content="Back" MinWidth="72" HorizontalContentAlignment="Center"
@@ -228,6 +234,12 @@
                           </ItemsControl>
                           <TextBlock Text="{Binding BodyAfterItems}" TextWrapping="Wrap"
                                      IsVisible="{Binding BodyAfterItems, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                          <StackPanel Spacing="4" IsVisible="{Binding ShowSetupCheckReference}">
+                            <TextBlock Text="{Binding SetupCheckReferenceCaption}" Foreground="#C8C8C8" TextWrapping="Wrap" />
+                            <Border BorderBrush="#484848" BorderThickness="1" HorizontalAlignment="Left" MaxWidth="480">
+                              <Image Source="avares://AutoLUT/Assets/setup-check-reference.png" Stretch="Uniform" />
+                            </Border>
+                          </StackPanel>
                           <ItemsControl ItemsSource="{Binding Settings}"
                                         IsVisible="{Binding Settings, Converter={x:Static ObjectConverters.IsNotNull}}">
                             <ItemsControl.ItemTemplate>
@@ -282,7 +294,8 @@
                             <Button Content="Open folder" Tag="savestates" Click="OnBundleFolderClick" />
                           </StackPanel>
                           <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowLoadImages}">
-                            <Button Content="Load images..." Click="OnLoadImagesClick" />
+                            <Button Content="Load images..."
+                                    Command="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).AddScreenshotsCommand}" />
                             <Button Content="Reset"
                                     Command="{Binding $parent[UserControl].((vm:MainWindowViewModel)DataContext).ResetCommand}" />
                           </StackPanel>
@@ -376,13 +389,13 @@
     <!-- Calibration details overlay. The dim layer's padding caps the card height at the window,
          so the content sizes to itself and scrolls only when it would not fit. -->
     <Border Background="#B0000000" IsVisible="{Binding IsDetailsOpen}" Padding="40,32">
-      <Border Background="#2C2C2C" BorderBrush="#565656" BorderThickness="1" CornerRadius="4" MaxWidth="720" Padding="24,20" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <Border x:Name="DetailsCard" Background="#2C2C2C" BorderBrush="#565656" BorderThickness="1" CornerRadius="4" MaxWidth="720" Padding="24,20" HorizontalAlignment="Center" VerticalAlignment="Center">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Text="Calibration details" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,10" />
           <DockPanel DockPanel.Dock="Bottom" LastChildFill="True" Margin="0,10,0,0">
             <Button DockPanel.Dock="Left" Content="Copy debug text" Command="{Binding CopyDetailsCommand}" />
             <Button DockPanel.Dock="Left" Content="Save debug zip..." Command="{Binding SaveDetailsZipCommand}" Margin="8,0,0,0" />
-            <Button DockPanel.Dock="Right" Content="Close" MinWidth="72" HorizontalContentAlignment="Center" Command="{Binding CloseDetailsCommand}" />
+            <Button x:Name="DetailsCloseButton" DockPanel.Dock="Right" Content="Close" MinWidth="72" HorizontalContentAlignment="Center" Command="{Binding CloseDetailsCommand}" />
             <TextBlock Text="{Binding DetailsFeedback}" Foreground="#999999" FontSize="12" VerticalAlignment="Center" Margin="12,0,8,0" TextTrimming="CharacterEllipsis" />
           </DockPanel>
           <ScrollViewer>
@@ -610,13 +623,14 @@
       </Border>
     </Border>
 
-    <!-- Modal warning overlay (used in the browser, where dialog Windows are unavailable) -->
+    <!-- Modal warning overlay (used in the browser, where dialog Windows are unavailable).
+         Enter on the focused OK button or Escape anywhere dismisses it (code-behind). -->
     <Border Background="#B0000000" IsVisible="{Binding Overlay.IsOpen, FallbackValue=False}">
       <Border Background="#2C2C2C" BorderBrush="#565656" BorderThickness="1" CornerRadius="4" MaxWidth="420" Padding="20,16" HorizontalAlignment="Center" VerticalAlignment="Center">
         <StackPanel Spacing="12">
           <TextBlock Text="{Binding Overlay.Title}" FontWeight="SemiBold" />
           <TextBlock Text="{Binding Overlay.Message}" TextWrapping="Wrap" MaxWidth="380" />
-          <Button Content="OK" MinWidth="72" HorizontalAlignment="Right" HorizontalContentAlignment="Center" Command="{Binding Overlay.DismissCommand}" />
+          <Button x:Name="OverlayOkButton" Content="OK" MinWidth="72" HorizontalAlignment="Right" HorizontalContentAlignment="Center" Command="{Binding Overlay.DismissCommand}" />
         </StackPanel>
       </Border>
     </Border>

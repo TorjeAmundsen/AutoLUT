@@ -1,24 +1,33 @@
+using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using AutoLUT.App.Services;
 using AutoLUT.App.ViewModels;
 
 namespace AutoLUT.App.Views;
 
 public partial class MainView : UserControl
 {
-    private const string ReadmeUrl = "https://github.com/TorjeAmundsen/AutoLUT#readme";
+    private const string TutorialUrl = "https://github.com/TorjeAmundsen/AutoLUT/blob/main/TUTORIAL.md";
     private const string ReleasesUrl = "https://github.com/TorjeAmundsen/AutoLUT/releases";
+
+    /// <summary>What had focus before an overlay opened, to give it back when the last one closes.</summary>
+    private IInputElement? _focusBeforeOverlay;
 
     public MainView()
     {
         InitializeComponent();
-        // DragOver/Drop are attached routed events, so they cannot be wired from XAML.
-        DragDrop.AddDragOverHandler(HelpGuide, OnGuideDragOver);
-        DragDrop.AddDropHandler(HelpGuide, OnGuideDrop);
+        // DragOver/Drop are attached routed events, so they cannot be wired from XAML. Handling
+        // them on the view itself makes the whole window a drop target: drops on any child
+        // bubble up here, and the view's own background keeps empty areas hit-testable.
+        DragDrop.AddDragOverHandler(this, OnDragOver);
+        DragDrop.AddDropHandler(this, OnDrop);
+
+        ScreenshotList.KeyDown += OnScreenshotListKeyDown;
 
         // The view model ignores the cleared selection from a Ctrl+click, but the picker still
         // shows nothing selected until it is given the current step again.
@@ -43,66 +52,173 @@ public partial class MainView : UserControl
                         GuideScroll.ScrollToHome();
                     }
                 };
+
+                vm.PropertyChanged += OnOverlayStateChanged;
+                if (vm.Overlay is { } overlay)
+                {
+                    overlay.PropertyChanged += OnOverlayStateChanged;
+                }
+            }
+        };
+
+        // Escape closes the topmost overlay. Enter needs no handler: focus moves onto the
+        // overlay's button when it opens, and a focused button clicks on Enter.
+        KeyDown += (_, e) =>
+        {
+            if (e.Key != Key.Escape || DataContext is not MainWindowViewModel vm)
+            {
+                return;
+            }
+
+            if (vm.Overlay is { IsOpen: true } overlay)
+            {
+                overlay.DismissCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (vm.IsDetailsOpen)
+            {
+                vm.CloseDetailsCommand.Execute(null);
+                e.Handled = true;
             }
         };
     }
 
-    private void OnLoadImagesClick(object? sender, RoutedEventArgs e)
+    private void OnOverlayStateChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // Inside the step DataTemplate the DataContext is the step item, so the main
-        // view model's command is invoked from code-behind instead of a binding.
-        if (DataContext is MainWindowViewModel vm)
+        if (e.PropertyName is nameof(MainWindowViewModel.IsDetailsOpen) or nameof(OverlayDialogService.IsOpen))
         {
-            vm.AddScreenshotsCommand.Execute(null);
+            UpdateOverlayFocus();
         }
     }
 
-    private void OnGuideDragOver(object? sender, DragEventArgs e)
+    /// <summary>
+    /// Keeps keyboard focus inside the topmost overlay: everything behind it is disabled, so
+    /// Tab cannot wander there, and focus starts on the overlay's button. When the last overlay
+    /// closes, focus returns to where it was before the first one opened.
+    /// </summary>
+    private void UpdateOverlayFocus()
+    {
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        bool warningOpen = vm.Overlay?.IsOpen == true;
+        bool detailsOpen = vm.IsDetailsOpen;
+        bool anyOpen = warningOpen || detailsOpen;
+
+        if (anyOpen && MainContent.IsEnabled)
+        {
+            _focusBeforeOverlay = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+        }
+
+        MainContent.IsEnabled = !anyOpen;
+        DetailsCard.IsEnabled = !warningOpen;
+
+        // Posted: the overlay's IsVisible binding may not have updated yet, and an invisible
+        // control refuses focus.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (warningOpen)
+            {
+                OverlayOkButton.Focus(NavigationMethod.Tab);
+            }
+            else if (detailsOpen)
+            {
+                DetailsCloseButton.Focus(NavigationMethod.Tab);
+            }
+            else if (_focusBeforeOverlay is { } previous)
+            {
+                _focusBeforeOverlay = null;
+                previous.Focus();
+            }
+        });
+    }
+
+    private void OnScreenshotListKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Delete
+            && DataContext is MainWindowViewModel { SelectedScreenshot: { } selected } vm
+            && vm.RemoveScreenshotCommand.CanExecute(selected))
+        {
+            vm.RemoveScreenshotCommand.Execute(selected);
+            e.Handled = true;
+        }
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
     {
         e.DragEffects = e.DataTransfer.Contains(DataFormat.File) ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
     }
 
-    private async void OnGuideDrop(object? sender, DragEventArgs e)
+    private async void OnDrop(object? sender, DragEventArgs e)
     {
         e.Handled = true;
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
         try
         {
-            if (DataContext is not MainWindowViewModel vm || e.DataTransfer.TryGetFiles() is not { } items)
+            if (e.DataTransfer.TryGetFiles() is not { } items)
             {
                 return;
             }
 
+            // Dropped files go to the decoder whatever their extension, so a wrong file is
+            // reported by name. A dropped folder contributes only its PNGs: it usually holds
+            // other files too, and those are not mistakes worth reporting.
             var files = new List<(string Name, byte[] Data)>();
             foreach (var item in items)
             {
-                if (item is IStorageFile file && file.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                if (item is IStorageFile file)
                 {
-                    await using var stream = await file.OpenReadAsync();
-                    using var memory = new MemoryStream();
-                    await stream.CopyToAsync(memory);
-                    files.Add((file.Name, memory.ToArray()));
+                    files.Add((file.Name, await ReadAllBytesAsync(file)));
+                }
+                else if (item is IStorageFolder folder)
+                {
+                    await foreach (var child in folder.GetItemsAsync())
+                    {
+                        if (child is IStorageFile childFile && childFile.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                        {
+                            files.Add((childFile.Name, await ReadAllBytesAsync(childFile)));
+                        }
+                    }
                 }
             }
 
-            if (files.Count > 0)
+            if (files.Count == 0)
             {
-                await vm.AddScreenshotDataAsync(files);
+                vm.StatusText = "Nothing to load: drop PNG screenshots, or a folder that contains them.";
+                return;
             }
+
+            await vm.AddScreenshotDataAsync(files);
         }
-        catch
+        catch (Exception ex)
         {
-            // A failed drop must never take the app down.
+            // A failed drop must never take the app down, but it must not fail silently either.
+            vm.StatusText = $"Could not read the dropped files: {ex.Message}";
         }
     }
 
-    private async void OnReadmeLinkClick(object? sender, RoutedEventArgs e)
+    private static async Task<byte[]> ReadAllBytesAsync(IStorageFile file)
+    {
+        await using var stream = await file.OpenReadAsync();
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory);
+        return memory.ToArray();
+    }
+
+    private async void OnTutorialLinkClick(object? sender, RoutedEventArgs e)
     {
         try
         {
             if (TopLevel.GetTopLevel(this) is { } topLevel)
             {
-                await topLevel.Launcher.LaunchUriAsync(new Uri(ReadmeUrl));
+                await topLevel.Launcher.LaunchUriAsync(new Uri(TutorialUrl));
             }
         }
         catch

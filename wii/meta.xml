@@ -2,8 +2,8 @@
 <app version="1">
   <name>AutoLUT Palette</name>
   <coder>Torje</coder>
-  <version>1.1.0</version>
-  <release_date>20260928</release_date>
+  <version>1.1.1</version>
+  <release_date>20261013</release_date>
   <short_description>Calibration colors for AutoLUT</short_description>
   <long_description>Displays the 39 AutoLUT calibration colors fullscreen for capture color calibration.
 

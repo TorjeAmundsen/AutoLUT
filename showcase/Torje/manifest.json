@@ -1,0 +1,10 @@
+{
+  "subjects": [
+    {
+      "label": "Test dive",
+      "before": "dive-before.png",
+      "after": "dive-after.png",
+      "dolphin": "dive-dolphin.png"
+    }
+  ]
+}

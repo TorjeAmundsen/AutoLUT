@@ -107,7 +107,11 @@ public static class ColorIdentifier
 
         if (whiteRunnerUpGap < ClippingWarnGap)
         {
-            warnings.Add("Capture appears to be clipping highlights - consider lowering capture brightness/contrast.");
+            // No brightness/contrast advice: those capture controls are digital filters after the
+            // ADC, and lowering them cannot recover levels the analog chain already clipped.
+            warnings.Add("Capture appears to be clipping highlights: the brightest captures are nearly identical, "
+                + "so detail in very bright areas is lost before AutoLUT sees it. Calibration compensates "
+                + "for the rest of the range.");
         }
 
         // 2. Pre-normalize per channel; residual degradation is pure gamma.

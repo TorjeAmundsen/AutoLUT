@@ -336,7 +336,7 @@ public sealed class CalibrationDetailsViewModel
         }
 
         report.AppendLine();
-        report.AppendLine("Captures (worst first):");
+        report.AppendLine("Captures (errors, then outliers, then by target):");
         int nameWidth = Math.Max("Capture".Length, Rows.Count > 0 ? Rows.Max(r => r.Name.Length) : 0);
         report.AppendLine($"{"Capture".PadRight(nameWidth)}  {"Target",-8}  {"Observed",-8}  {"dE",-7}  Status");
         foreach (var row in Rows)

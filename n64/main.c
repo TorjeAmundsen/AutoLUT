@@ -12,53 +12,53 @@ typedef struct {
 } palette_color;
 
 static const palette_color palette[] = {
-    { 0x00, 0x00, 0x00 }, // 01 gray_000000
-    { 0x20, 0x20, 0x20 }, // 02 gray_202020
-    { 0x40, 0x40, 0x40 }, // 03 gray_404040
-    { 0x60, 0x60, 0x60 }, // 04 gray_606060
-    { 0x80, 0x80, 0x80 }, // 05 gray_808080
-    { 0xA0, 0xA0, 0xA0 }, // 06 gray_a0a0a0
-    { 0xC0, 0xC0, 0xC0 }, // 07 gray_c0c0c0
-    { 0xE0, 0xE0, 0xE0 }, // 08 gray_e0e0e0
-    { 0xFF, 0xFF, 0xFF }, // 09 gray_ffffff
-    { 0x00, 0x00, 0x80 }, // 10 grid_000080
-    { 0x00, 0x00, 0xFF }, // 11 grid_0000ff
-    { 0x00, 0x80, 0x00 }, // 12 grid_008000
-    { 0x00, 0x80, 0x80 }, // 13 grid_008080
-    { 0x00, 0x80, 0xFF }, // 14 grid_0080ff
-    { 0x00, 0xFF, 0x00 }, // 15 grid_00ff00
-    { 0x00, 0xFF, 0x80 }, // 16 grid_00ff80
-    { 0x00, 0xFF, 0xFF }, // 17 grid_00ffff
-    { 0x80, 0x00, 0x00 }, // 18 grid_800000
-    { 0x80, 0x00, 0x80 }, // 19 grid_800080
-    { 0x80, 0x00, 0xFF }, // 20 grid_8000ff
-    { 0x80, 0x80, 0x00 }, // 21 grid_808000
-    { 0x80, 0x80, 0xFF }, // 22 grid_8080ff
-    { 0x80, 0xFF, 0x00 }, // 23 grid_80ff00
-    { 0x80, 0xFF, 0x80 }, // 24 grid_80ff80
-    { 0x80, 0xFF, 0xFF }, // 25 grid_80ffff
-    { 0xFF, 0x00, 0x00 }, // 26 grid_ff0000
-    { 0xFF, 0x00, 0x80 }, // 27 grid_ff0080
-    { 0xFF, 0x00, 0xFF }, // 28 grid_ff00ff
-    { 0xFF, 0x80, 0x00 }, // 29 grid_ff8000
-    { 0xFF, 0x80, 0x80 }, // 30 grid_ff8080
-    { 0xFF, 0x80, 0xFF }, // 31 grid_ff80ff
-    { 0xFF, 0xFF, 0x00 }, // 32 grid_ffff00
-    { 0xFF, 0xFF, 0x80 }, // 33 grid_ffff80
-    { 0xC0, 0x40, 0x40 }, // 34 mids_c04040
-    { 0x40, 0xC0, 0x40 }, // 35 mids_40c040
-    { 0x40, 0x40, 0xC0 }, // 36 mids_4040c0
-    { 0xC0, 0xC0, 0x40 }, // 37 mids_c0c040
-    { 0xC0, 0x40, 0xC0 }, // 38 mids_c040c0
-    { 0x40, 0xC0, 0xC0 }, // 39 mids_40c0c0
+    {0x00, 0x00, 0x00},  // 01 gray_000000
+    {0x20, 0x20, 0x20},  // 02 gray_202020
+    {0x40, 0x40, 0x40},  // 03 gray_404040
+    {0x60, 0x60, 0x60},  // 04 gray_606060
+    {0x80, 0x80, 0x80},  // 05 gray_808080
+    {0xA0, 0xA0, 0xA0},  // 06 gray_a0a0a0
+    {0xC0, 0xC0, 0xC0},  // 07 gray_c0c0c0
+    {0xE0, 0xE0, 0xE0},  // 08 gray_e0e0e0
+    {0xFF, 0xFF, 0xFF},  // 09 gray_ffffff
+    {0x00, 0x00, 0x80},  // 10 grid_000080
+    {0x00, 0x00, 0xFF},  // 11 grid_0000ff
+    {0x00, 0x80, 0x00},  // 12 grid_008000
+    {0x00, 0x80, 0x80},  // 13 grid_008080
+    {0x00, 0x80, 0xFF},  // 14 grid_0080ff
+    {0x00, 0xFF, 0x00},  // 15 grid_00ff00
+    {0x00, 0xFF, 0x80},  // 16 grid_00ff80
+    {0x00, 0xFF, 0xFF},  // 17 grid_00ffff
+    {0x80, 0x00, 0x00},  // 18 grid_800000
+    {0x80, 0x00, 0x80},  // 19 grid_800080
+    {0x80, 0x00, 0xFF},  // 20 grid_8000ff
+    {0x80, 0x80, 0x00},  // 21 grid_808000
+    {0x80, 0x80, 0xFF},  // 22 grid_8080ff
+    {0x80, 0xFF, 0x00},  // 23 grid_80ff00
+    {0x80, 0xFF, 0x80},  // 24 grid_80ff80
+    {0x80, 0xFF, 0xFF},  // 25 grid_80ffff
+    {0xFF, 0x00, 0x00},  // 26 grid_ff0000
+    {0xFF, 0x00, 0x80},  // 27 grid_ff0080
+    {0xFF, 0x00, 0xFF},  // 28 grid_ff00ff
+    {0xFF, 0x80, 0x00},  // 29 grid_ff8000
+    {0xFF, 0x80, 0x80},  // 30 grid_ff8080
+    {0xFF, 0x80, 0xFF},  // 31 grid_ff80ff
+    {0xFF, 0xFF, 0x00},  // 32 grid_ffff00
+    {0xFF, 0xFF, 0x80},  // 33 grid_ffff80
+    {0xC0, 0x40, 0x40},  // 34 mids_c04040
+    {0x40, 0xC0, 0x40},  // 35 mids_40c040
+    {0x40, 0x40, 0xC0},  // 36 mids_4040c0
+    {0xC0, 0xC0, 0x40},  // 37 mids_c0c040
+    {0xC0, 0x40, 0xC0},  // 38 mids_c040c0
+    {0x40, 0xC0, 0xC0},  // 39 mids_40c0c0
 };
 #define PALETTE_COUNT ((int)(sizeof(palette) / sizeof(palette[0])))
 
-#define FONT_WIDTH  8
+#define FONT_WIDTH 8
 #define FONT_HEIGHT 8
 
 // Draws text on a fixed dark-gray box so it stays readable on any palette color.
-static void draw_boxed_text(surface_t *disp, int x, int y, const char *text) {
+static void draw_boxed_text(surface_t* disp, int x, int y, const char* text) {
     uint32_t box_color = graphics_make_color(0x30, 0x30, 0x30, 0xFF);
     int box_width = (int)strlen(text) * FONT_WIDTH + 8;
     graphics_draw_box(disp, x, y, box_width, FONT_HEIGHT + 8, box_color);
@@ -69,11 +69,11 @@ static void draw_boxed_text(surface_t *disp, int x, int y, const char *text) {
 // Near-black and near-white step boxes, each paired with a label, for judging the
 // capture's color range by eye: a crushed capture merges the faint boxes into
 // the background, a washed-out one turns the black half gray and dims the white.
-static const uint8_t black_steps[] = { 8, 16, 24, 32 };
-static const uint8_t white_steps[] = { 247, 239, 231, 223 };
+static const uint8_t black_steps[] = {8, 16, 24, 32};
+static const uint8_t white_steps[] = {247, 239, 231, 223};
 #define STEP_COUNT 4
 
-static void draw_step_row(surface_t *disp, int y, uint8_t background, uint8_t text, const uint8_t *steps) {
+static void draw_step_row(surface_t* disp, int y, uint8_t background, uint8_t text, const uint8_t* steps) {
     uint32_t background_color = graphics_make_color(background, background, background, 0xFF);
     graphics_set_color(graphics_make_color(text, text, text, 0xFF), background_color);
     for (int i = 0; i < STEP_COUNT; i++) {
@@ -86,7 +86,7 @@ static void draw_step_row(surface_t *disp, int y, uint8_t background, uint8_t te
 }
 
 // Top half black, bottom half white, a row of step boxes in each.
-static void draw_setup_check(surface_t *disp) {
+static void draw_setup_check(surface_t* disp) {
     uint32_t black = graphics_make_color(0x00, 0x00, 0x00, 0xFF);
     uint32_t white = graphics_make_color(0xFF, 0xFF, 0xFF, 0xFF);
     graphics_fill_screen(disp, black);
@@ -103,21 +103,22 @@ static void draw_setup_check(surface_t *disp) {
     draw_boxed_text(disp, 16, 208, "SETUP CHECK - see guide");
 }
 
-static void draw_palette_color(surface_t *disp, int index) {
-    const palette_color *color = &palette[index];
+static void draw_palette_color(surface_t* disp, int index) {
+    const palette_color* color = &palette[index];
     graphics_fill_screen(disp, graphics_make_color(color->red, color->green, color->blue, 0xFF));
 
     // Overlays sit at the screen edges, inset for overscan and well clear
     // of the sampled center 30% region (x 112-208, y 84-156 at 320x240).
     char label[32];
-    snprintf(label, sizeof(label), "%02d/%02d #%02X%02X%02X",
-             index + 1, PALETTE_COUNT, color->red, color->green, color->blue);
+    snprintf(label, sizeof(label), "%02d/%02d #%02X%02X%02X", index + 1, PALETTE_COUNT, color->red, color->green, color->blue);
     draw_boxed_text(disp, 16, 208, label);
 }
 
 int main(void) {
     // 32bpp framebuffer with gamma, dedither and divot off: the commanded 8-bit
-    // RGB is scanned out exactly - no RGBA5551 quantization, no dither. Resample
+    // RGB reaches the VI unmodified - no RGBA5551 quantization, no dither. The video
+    // DAC then takes 7 bits per channel (255 is full scale), which shows every palette
+    // and setup-check level within one 8-bit code of its value. Resample
     // (bilinear VI upscale) cannot alter a solid-color region and must stay on:
     // disabling it at 320-wide hits a VI fetch erratum (libdragon issue #66)
     // that corrupts scanlines while the CPU is writing the other framebuffer.
@@ -154,7 +155,7 @@ int main(void) {
 
         // display_get blocks until vblank frees a buffer, throttling this loop
         // to one iteration per frame.
-        surface_t *disp = display_get();
+        surface_t* disp = display_get();
 
         if (buffers_to_draw > 0) {
             buffers_to_draw--;

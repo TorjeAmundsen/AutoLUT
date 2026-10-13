@@ -22,7 +22,8 @@ public partial class HelpWizardViewModel : ObservableObject
         bool IsObsSetup = false,
         IReadOnlyList<SettingsGroup>? Settings = null,
         IReadOnlyList<string>? Items = null,
-        string? BodyAfterItems = null);
+        string? BodyAfterItems = null,
+        bool ShowSetupCheckReference = false);
 
     /// <summary>One OBS dialog and the settings to change in it.</summary>
     public sealed record SettingsGroup(string Location, IReadOnlyList<SettingRow> Rows, string? Note = null);
@@ -41,7 +42,7 @@ public partial class HelpWizardViewModel : ObservableObject
         IsObsSetup: true,
         Settings:
         [
-            new("OBS Settings → Advanced → Video",
+            new("OBS Settings > Advanced > Video",
                 [new("Color Space", "Rec. 709"), new("Color Range", "Limited")],
                 "This is what modern streaming sites expect."),
             new("Your capture source's Properties",
@@ -96,21 +97,19 @@ public partial class HelpWizardViewModel : ObservableObject
     // Palette apps only: they open on a setup check screen, toggled with B.
     private static readonly HelpStep SetupCheckStep = new(
         "Check your color range",
-        "The app opens on a setup check screen. The top half is black with four dark boxes (8, 16, 24, 32). "
-        + "The bottom half is white with four light boxes (247, 239, 231, 223). Look at it in the OBS preview, "
-        + "with the Apply LUT filter off if you already have one:",
+        "The app opens on a setup check screen with four dark boxes on black and four light boxes on white. "
+        + "Look at it in the OBS preview, with the Apply LUT filter off if you already have one, and set Color Range "
+        + "in the capture source's Properties:",
         Items:
         [
-            "All 8 boxes visible, black half black, white half white: your color range is right.",
-            "Boxes 8 and 16 (or 247 and 239) blend into the background: the capture is crushed. Set Color Range "
-            + "in the capture source's Properties to Full.",
-            "Every box is visible, but the black half looks dark gray next to OBS's black canvas and the white "
-            + "half looks dim: the capture is washed out. Set Color Range to Partial.",
+            "Set it to Partial. If all 8 boxes are visible, you're done.",
+            "If some boxes disappear into the background, set it to Full instead.",
         ],
-        Note: "Not sure? Try each Color Range option and keep the one with the darkest black and brightest white where all "
-        + "8 boxes still show. If boxes vanish on every option, recheck the custom 720x480 resolution from step 1. "
+        Note: "Always try Partial first: Full shows every box even when it's the wrong choice. If boxes disappear on "
+        + "both, recheck the custom 720x480 resolution from step 1. "
         + "Press B to go to the colors. B brings the check screen back at any time and returns you to the same "
-        + "color. Don't include the check screen in your calibration screenshots.");
+        + "color. Don't include the check screen in your calibration screenshots.",
+        ShowSetupCheckReference: true);
 
     private static readonly HelpStep GzScreenshotStep = new(
         "Screenshot all 39 colors",
@@ -119,7 +118,8 @@ public partial class HelpWizardViewModel : ObservableObject
 
     private static readonly HelpStep LoadStep = new(
         "Load and generate",
-        "Click Load images below - or drag and drop your screenshots anywhere onto this guide - then click Generate LUT in the bottom left.",
+        "Click Load images below, or drag your screenshots (or the folder that holds them) and drop them anywhere in this window. "
+        + "Then click Generate LUT in the bottom left.",
         "Screenshots from an earlier run stay loaded - click Reset first so they don't mix with the new ones.",
         StepAction.LoadImages);
 
@@ -275,6 +275,10 @@ public partial class HelpWizardViewModel : ObservableObject
             Items = step.Items?.Select((text, i) => new NumberedItem($"{i + 1}.", text)).ToArray();
             BodyAfterItems = step.BodyAfterItems;
             IsObsSetup = step.IsObsSetup;
+            ShowSetupCheckReference = step.ShowSetupCheckReference;
+            SetupCheckReferenceCaption = platform == "n64"
+                ? "A correct color range, every box visible (Wii app shown, the N64 ROM looks the same):"
+                : "A correct color range, every box visible:";
 
             bool isGetColors = step.Action == StepAction.GetColors;
             bool isBrowser = OperatingSystem.IsBrowser();
@@ -303,6 +307,11 @@ public partial class HelpWizardViewModel : ObservableObject
 
         /// <summary>The OBS step keeps the amber "do this first" callout styling.</summary>
         public bool IsObsSetup { get; }
+
+        /// <summary>The color range step shows a capture of the check screen with a correct color range.</summary>
+        public bool ShowSetupCheckReference { get; }
+
+        public string SetupCheckReferenceCaption { get; }
 
         public bool ShowWiiDownload { get; }
         public bool ShowN64Download { get; }

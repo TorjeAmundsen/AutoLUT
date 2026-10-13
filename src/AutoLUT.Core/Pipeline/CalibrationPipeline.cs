@@ -57,8 +57,7 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
     // deliberately BELOW the neutral anchors': anchoring is per-sample, so a top's near-zero
     // channels (#ff0000's G/B) carry the same multiplier, and at 10x their pull on the dark end
     // of the curves tilts the mid grays enough to reject #a0a0a0 on the real feed. 6x is the
-    // validated point: enough to pin the shoulder (and stay above the fitter's trusted-weight
-    // floor of 5 after the noise-based base weight), weak enough to leave the ramp alone.
+    // validated point: enough to pin the shoulder, weak enough to leave the ramp alone.
     private const double WhiteAnchorWeight = 10.0;
     private const double Gray224AnchorWeight = 10.0;
     private const double SaturatedTopAnchorWeight = 6.0;
@@ -119,9 +118,9 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         IReadOnlyList<ScreenshotInput> screenshots,
         IProgress<PipelineProgress>? progress,
         CancellationToken cancellationToken) =>
-        Task.Run(() => Run(screenshots, progress, cancellationToken), cancellationToken);
+        Task.Run(() => RunCoreAsync(screenshots, progress, cancellationToken), cancellationToken);
 
-    private CalibrationResult Run(
+    private async Task<CalibrationResult> RunCoreAsync(
         IReadOnlyList<ScreenshotInput> screenshots,
         IProgress<PipelineProgress>? progress,
         CancellationToken ct)
@@ -138,16 +137,25 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
             ct.ThrowIfCancellationRequested();
             progress?.Report(new PipelineProgress(PipelineStage.Validating, $"Validating {names[i]}...", (i + 1) / (double)n));
 
-            RawImage image;
-            try
+            SolidAnalysis analysis;
+            if (screenshots[i].Analysis is { } known)
             {
-                using var stream = new MemoryStream(screenshots[i].Data);
-                image = _codec.Decode(stream);
+                analysis = known;
             }
-            catch (InvalidDataException)
+            else
             {
-                errors[i] = "could not be read as a PNG image.";
-                continue;
+                try
+                {
+                    using var stream = new MemoryStream(screenshots[i].Data);
+                    analysis = SolidColorAnalyzer.Analyze(_codec.Decode(stream));
+                }
+                catch (InvalidDataException)
+                {
+                    errors[i] = "could not be read as a PNG image.";
+                    continue;
+                }
+
+                await BrowserYield.ForFrameAsync(ct);
             }
 
             if (!seenHashes.Add(Convert.ToHexString(SHA256.HashData(screenshots[i].Data))))
@@ -156,7 +164,6 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
                 continue;
             }
 
-            var analysis = SolidColorAnalyzer.Analyze(image);
             if (!analysis.IsSolid)
             {
                 errors[i] = "is not a solid color capture.";
@@ -178,6 +185,7 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         }
 
         progress?.Report(new PipelineProgress(PipelineStage.Identifying, "Identifying colors..."));
+        await BrowserYield.ForFrameAsync(ct);
         var outcome = ColorIdentifier.Identify(validIndices.Select(i => means[i]!.Value).ToArray(), ct);
         warnings.AddRange(outcome.Warnings);
         if (outcome.GlobalError is not null)
@@ -208,10 +216,9 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
         // All 9 neutrals are guaranteed identified at this point.
         Rgb MeanOf(byte gray) => means[Array.IndexOf(targets, CalibrationPalette.Neutrals.First(c => c.R == gray))]!.Value;
-        string? rangeWarning = ColorRangeCheck.Detect(MeanOf(0), MeanOf(255), MeanOf(32), MeanOf(224));
-
         float? crushDepth = BlackCrushCheck.Detect(MeanOf);
         bool darksCrushed = crushDepth is not null;
+        string? rangeWarning = ColorRangeCheck.Detect(MeanOf(0), MeanOf(255), MeanOf(32), MeanOf(224), darksCrushed);
         // A range mismatch is itself what crushes the darks, so its warning already explains the
         // clipping - a second crushed-shadows warning would just restate it. The crush fit
         // compensation below still applies either way.
@@ -252,8 +259,9 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         {
             corrections.Add(
                 $"Highlight compression compensation: fitting a finer {CrushCurveKnots}-knot tone curve and "
-                + $"anchoring white and the saturated primaries/secondaries ({WhiteAnchorWeight}x weight) and "
-                + $"gray 224 ({Gray224AnchorWeight}x) so the curve shoulder follows the compressed highlights.");
+                + $"anchoring white ({WhiteAnchorWeight}x weight), gray 224 ({Gray224AnchorWeight}x) and the "
+                + $"saturated primaries/secondaries ({SaturatedTopAnchorWeight}x) so the curve shoulder follows "
+                + "the compressed highlights.");
         }
 
         var correspondences = new List<ColorCorrespondence>(identified);
@@ -267,32 +275,40 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
 
             double noise = stdDevs[i] / NoiseScale;
             double weight = 1.0 / (1.0 + noise * noise);
+            double anchorWeight = 1.0;
             if (darksCrushed && target is { IsNeutral: true, R: 0 })
             {
-                weight *= BlackAnchorWeight;
+                anchorWeight = BlackAnchorWeight;
             }
             else if (darksCrushed && target is { IsNeutral: true, R: 32 })
             {
-                weight *= Gray32AnchorWeight;
+                anchorWeight = Gray32AnchorWeight;
             }
             else if (highlightsCompressed && target is { IsNeutral: true, R: 255 })
             {
-                weight *= WhiteAnchorWeight;
+                anchorWeight = WhiteAnchorWeight;
             }
             else if (highlightsCompressed && IsSaturatedTop(target))
             {
-                weight *= SaturatedTopAnchorWeight;
+                anchorWeight = SaturatedTopAnchorWeight;
             }
             else if (highlightsCompressed && target is { IsNeutral: true, R: 224 })
             {
-                weight *= Gray224AnchorWeight;
+                anchorWeight = Gray224AnchorWeight;
             }
 
-            correspondences.Add(new ColorCorrespondence(mean, target.ToRgb(), weight, stdDevs[i] * stdDevs[i]));
+            // Anchors are flagged explicitly rather than inferred from the final weight: the
+            // noise-based base weight would otherwise drop a noisy capture's anchor below the
+            // fitter's trust threshold and let the robust loop reject it.
+            bool isAnchor = anchorWeight > 1.0;
+            weight *= anchorWeight;
+
+            correspondences.Add(new ColorCorrespondence(mean, target.ToRgb(), weight, stdDevs[i] * stdDevs[i], isAnchor));
             correspondenceShotIndex.Add(i);
         }
 
         progress?.Report(new PipelineProgress(PipelineStage.Fitting, "Fitting transform..."));
+        await BrowserYield.ForFrameAsync(ct);
         FitResult fit;
         try
         {
@@ -356,6 +372,7 @@ public sealed class CalibrationPipeline : ICalibrationPipeline
         }
 
         progress?.Report(new PipelineProgress(PipelineStage.GeneratingLut, "Generating LUT..."));
+        await BrowserYield.ForFrameAsync(ct);
         var lut = _lutGenerator.Generate(fit.Transform);
         var lutImage = _lutWriter.Bake(lut, _lutTemplate);
 
