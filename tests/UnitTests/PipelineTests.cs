@@ -28,6 +28,32 @@ public class PipelineTests
             .ToList();
 
     [Test]
+    public async Task Run_PrecomputedAnalysis_MatchesDecodingWithoutDecodingAgain()
+    {
+        // Arrange: the app measures each capture once at load and hands the measurement in;
+        // the pipeline must reach the same result without touching the codec.
+        var shots = PaletteShots(SolidCaptures.Degradation.Moderate);
+        var measured = shots
+            .Select(s => s with { Analysis = SolidColorAnalyzer.Analyze(Codec.Decode(new MemoryStream(s.Data))) })
+            .ToList();
+        var codec = Substitute.For<IImageCodec>();
+        var pipeline = new CalibrationPipeline(
+            codec, new AffineCurvesFitter(), new TransformLutGenerator(), new ObsLutWriter(), TestImages.LoadTemplate());
+
+        // Act
+        var decoded = await MakePipeline().RunAsync(shots, null, CancellationToken.None);
+        var precomputed = await pipeline.RunAsync(measured, null, CancellationToken.None);
+
+        // Assert
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(precomputed.Success, Is.True, precomputed.Error);
+            Assert.That(precomputed.LutImage!.Pixels, Is.EqualTo(decoded.LutImage!.Pixels));
+            codec.DidNotReceive().Decode(Arg.Any<Stream>());
+        }
+    }
+
+    [Test]
     public async Task EndToEnd_CorrectsDegradedCaptures()
     {
         // Arrange

@@ -1,0 +1,16 @@
+# Style for the C homebrew (wii/, n64/), matching dolphin-bridge. Run: build.ps1 --format
+BasedOnStyle: Google
+IndentWidth: 4
+ColumnLimit: 140
+IndentCaseLabels: false
+DerivePointerAlignment: false
+PointerAlignment: Left
+# Always braces, never single-line bodies.
+InsertBraces: true
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: None
+AllowShortCaseLabelsOnASingleLine: false
+# Keep includes in the order they are written.
+SortIncludes: Never

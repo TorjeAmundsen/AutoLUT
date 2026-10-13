@@ -19,7 +19,9 @@ function Build($rid) {
 
     # Native AOT requires building on the target OS.
     # Use Docker for Linux AOT builds when running on Windows.
-    $currentOs = if ($IsWindows) { "win" } elseif ($IsLinux) { "linux" } else { "osx" }
+    # $IsWindows/$IsLinux only exist in PowerShell 7+; Windows PowerShell 5.1 runs only on
+    # Windows, where $env:OS is always Windows_NT.
+    $currentOs = if ($IsWindows -or $env:OS -eq "Windows_NT") { "win" } elseif ($IsLinux) { "linux" } else { "osx" }
     $needsDocker = -not $rid.StartsWith($currentOs)
 
     if ($needsDocker -and $rid.StartsWith("linux")) {
@@ -138,7 +140,7 @@ function BuildWii() {
     docker run --rm `
         -v "${PSScriptRoot}:/src" `
         -w /src/wii `
-        devkitpro/devkitppc:latest `
+        devkitpro/devkitppc:latest@sha256:44cb1a920e1ec3ec7c06767493c3b85f8d643d6137cc4661f0201895ac6e4967 `
         make `
         | Out-Host
 
@@ -164,7 +166,7 @@ function BuildN64() {
     docker run --rm `
         -v "${PSScriptRoot}:/src" `
         -w /src `
-        ghcr.io/dragonminded/libdragon:latest `
+        ghcr.io/dragonminded/libdragon:latest@sha256:9fe2843c9b7289393c1885be62391140e8b4cdb3edbc715f202dea16f554c5d2 `
         sh n64/build.sh `
         | Out-Host
 
@@ -176,6 +178,37 @@ function BuildN64() {
     $romName = "$PSScriptRoot/build/AutoLUT-Palette-N64-$appVersion.z64"
     Copy-Item "$PSScriptRoot/n64/autolut-palette.z64" -Destination $romName -Force
     Write-Host "  Output: $romName"
+}
+
+# Formats (or with $check, only verifies) the C homebrew sources against .clang-format.
+# clang-format runs in Docker at a pinned version, so every machine and CI agree on the output.
+function FormatC($check) {
+    $mode = if ($check) { "--dry-run --Werror" } else { "-i" }
+    Write-Host $(if ($check) { "Checking C formatting..." } else { "Formatting C sources..." })
+
+    docker run --rm `
+        -v "${PSScriptRoot}:/src" `
+        -w /src `
+        python:3.13-slim@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f `
+        sh -c "pip install --quiet --disable-pip-version-check --root-user-action=ignore clang-format==23.1.1 && find wii n64 -path '*/build' -prune -o \( -name '*.c' -o -name '*.h' \) -print | xargs clang-format $mode" `
+        | Out-Host
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error $(if ($check) { "C sources are not formatted. Run build.ps1 --format." } else { "clang-format failed with exit code $LASTEXITCODE" })
+        exit $LASTEXITCODE
+    }
+}
+
+if ($args -contains "--format") {
+    FormatC $false
+    Write-Host "Format complete."
+    exit 0
+}
+
+if ($args -contains "--check-format") {
+    FormatC $true
+    Write-Host "C formatting OK."
+    exit 0
 }
 
 if ($args -contains "--wii") {

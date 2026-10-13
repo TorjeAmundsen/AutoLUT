@@ -13,8 +13,12 @@ public interface ICalibrationPipeline
         CancellationToken cancellationToken);
 }
 
-/// <summary>A user-supplied capture of a solid calibration color: display name plus raw PNG bytes.</summary>
-public sealed record ScreenshotInput(string Name, byte[] Data);
+/// <summary>
+/// A user-supplied capture of a solid calibration color: display name plus raw PNG bytes.
+/// <paramref name="Analysis"/> is the capture's <see cref="SolidColorAnalyzer"/> result when the caller
+/// already decoded it; the pipeline then skips decoding the image again.
+/// </summary>
+public sealed record ScreenshotInput(string Name, byte[] Data, SolidAnalysis? Analysis = null);
 
 public enum PipelineStage
 {

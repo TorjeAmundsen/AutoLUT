@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO.Compression;
 using AutoLUT.App.Services;
 using AutoLUT.App.Services.Update;
+using AutoLUT.Core.Calibration;
 using AutoLUT.Core.Imaging;
 using AutoLUT.Core.Lut;
 using AutoLUT.Core.Pipeline;
@@ -26,6 +27,11 @@ public partial class MainWindowViewModel : ObservableObject
     private int _lutGeneration;
     private int _previewVersion;
 
+    // Only the selected screenshot is ever held decoded: its source pixels, and its LUT-corrected
+    // pixels for the current LUT generation. Selecting another screenshot replaces both.
+    private (ScreenshotItemViewModel Item, RawImage Image)? _previewSource;
+    private (ScreenshotItemViewModel Item, int Generation, RawImage Image)? _previewCorrected;
+
     public ObservableCollection<ScreenshotItemViewModel> Screenshots { get; } = [];
 
     [ObservableProperty]
@@ -43,6 +49,13 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveLutCommand))]
     private bool _hasLut;
+
+    /// <summary>True while screenshots load or a LUT generates. The screenshot list is locked
+    /// meanwhile: a run maps its results back onto the items by position, and a load in flight
+    /// would add items that Reset had already cleared.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AddScreenshotsCommand), nameof(RemoveScreenshotCommand), nameof(ResetCommand), nameof(GenerateCommand))]
+    private bool _isBusy;
 
     /// <summary>Overlay dialog state for MainView's modal layer; null when dialogs are real windows (desktop).</summary>
     public OverlayDialogService? Overlay => _dialogs as OverlayDialogService;
@@ -161,7 +174,9 @@ public partial class MainWindowViewModel : ObservableObject
 
     partial void OnShowCorrectedChanged(bool value) => _ = UpdatePreviewAsync();
 
-    [RelayCommand]
+    private bool CanEditScreenshots() => !IsBusy;
+
+    [RelayCommand(CanExecute = nameof(CanEditScreenshots))]
     private async Task AddScreenshotsAsync()
     {
         IReadOnlyList<(string Name, byte[] Data)> picked;
@@ -178,24 +193,104 @@ public partial class MainWindowViewModel : ObservableObject
         await AddScreenshotDataAsync(picked);
     }
 
-    /// <summary>Decodes and adds screenshots; shared by the file picker and the guide's drag-and-drop.</summary>
+    /// <summary>Decodes and adds screenshots; shared by the file picker and drag-and-drop.
+    /// Each file is decoded once, to measure it; only its bytes and the measurement are kept.
+    /// Files identical to one already loaded are skipped.</summary>
     public async Task AddScreenshotDataAsync(IReadOnlyList<(string Name, byte[] Data)> picked)
     {
-        foreach (var (name, data) in picked)
+        if (IsBusy)
         {
-            try
+            StatusText = "Wait for the current task to finish before adding screenshots.";
+            return;
+        }
+
+        var duplicateNames = new List<string>();
+        var files = new List<(string Name, byte[] Data)>();
+        foreach (var file in picked)
+        {
+            // SequenceEqual compares lengths first, so this stays cheap for distinct captures.
+            bool isDuplicate = Screenshots.Any(s => s.Data.AsSpan().SequenceEqual(file.Data))
+                || files.Any(f => f.Data.AsSpan().SequenceEqual(file.Data));
+            if (isDuplicate)
             {
-                var image = await Task.Run(() =>
+                duplicateNames.Add(file.Name);
+            }
+            else
+            {
+                files.Add(file);
+            }
+        }
+
+        string previousStatus = StatusText;
+        IsBusy = true;
+        try
+        {
+            SolidAnalysis?[] analyses;
+            if (OperatingSystem.IsBrowser())
+            {
+                // No worker threads in the browser: decode one file at a time and let the page
+                // paint between files, so the tab shows progress instead of freezing.
+                analyses = new SolidAnalysis?[files.Count];
+                for (int i = 0; i < files.Count; i++)
                 {
-                    using var stream = new MemoryStream(data);
-                    return _codec.Decode(stream);
-                });
-                Screenshots.Add(new ScreenshotItemViewModel(name, data, image));
+                    StatusText = $"Loading {files[i].Name} ({i + 1}/{files.Count})...";
+                    await BrowserYield.ForFrameAsync();
+                    analyses[i] = TryAnalyze(files[i].Data);
+                }
             }
-            catch (InvalidDataException)
+            else
             {
-                StatusText = $"{name} could not be read as a PNG image.";
+                analyses = await Task.WhenAll(files.Select(file => Task.Run(() => TryAnalyze(file.Data))));
             }
+
+            StatusText = previousStatus;
+            var failedNames = new List<string>();
+            int addedCount = 0;
+            for (int i = 0; i < files.Count; i++)
+            {
+                if (analyses[i] is { } analysis)
+                {
+                    Screenshots.Add(new ScreenshotItemViewModel(files[i].Name, files[i].Data, analysis));
+                    addedCount++;
+                }
+                else
+                {
+                    failedNames.Add(files[i].Name);
+                }
+            }
+
+            if (addedCount > 0)
+            {
+                InvalidateResults();
+            }
+
+            var problems = new List<string>();
+            if (failedNames.Count == 1)
+            {
+                problems.Add($"{failedNames[0]} could not be read as an image.");
+            }
+            else if (failedNames.Count > 1)
+            {
+                problems.Add($"{failedNames.Count} files could not be read as images: {string.Join(", ", failedNames)}.");
+            }
+
+            if (duplicateNames.Count == 1)
+            {
+                problems.Add($"Skipped {duplicateNames[0]}: the same image is already loaded.");
+            }
+            else if (duplicateNames.Count > 1)
+            {
+                problems.Add($"Skipped {duplicateNames.Count} images that are already loaded: {string.Join(", ", duplicateNames)}.");
+            }
+
+            if (problems.Count > 0)
+            {
+                StatusText = string.Join(" ", problems);
+            }
+        }
+        finally
+        {
+            IsBusy = false;
         }
 
         GenerateCommand.NotifyCanExecuteChanged();
@@ -203,7 +298,78 @@ public partial class MainWindowViewModel : ObservableObject
         SelectedScreenshot ??= Screenshots.FirstOrDefault();
     }
 
-    private bool CanReset() => Screenshots.Count > 0;
+    [RelayCommand(CanExecute = nameof(CanEditScreenshots))]
+    private void RemoveScreenshot(ScreenshotItemViewModel? item)
+    {
+        int index = item is null ? -1 : Screenshots.IndexOf(item);
+        if (index < 0)
+        {
+            return;
+        }
+
+        if (Screenshots.Count == 1)
+        {
+            ResetCore();
+            return;
+        }
+
+        bool wasSelected = SelectedScreenshot == item;
+        Screenshots.RemoveAt(index);
+        if (_previewSource?.Item == item)
+        {
+            _previewSource = null;
+            _previewCorrected = null;
+        }
+
+        if (wasSelected)
+        {
+            SelectedScreenshot = Screenshots[Math.Min(index, Screenshots.Count - 1)];
+        }
+
+        InvalidateResults();
+        GenerateCommand.NotifyCanExecuteChanged();
+        ResetCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Drops a finished run's LUT, details and per-screenshot statuses once the loaded
+    /// screenshots change, so nothing on screen describes a set of captures that is gone.</summary>
+    private void InvalidateResults()
+    {
+        if (!HasLut && LastDetails is null)
+        {
+            return;
+        }
+
+        _lutImage = null;
+        _lutApplier = null;
+        HasLut = false;
+        ShowCorrected = false;
+        LastDetails = null;
+        IsDetailsOpen = false;
+        foreach (var screenshot in Screenshots)
+        {
+            screenshot.ClearStatus();
+        }
+
+        StatusText = "The screenshots changed. Click Generate LUT to make a new LUT.";
+    }
+
+    /// <summary>Center-region analysis of an image file, or null if it cannot be decoded.</summary>
+    private SolidAnalysis? TryAnalyze(byte[] data)
+    {
+        try
+        {
+            using var stream = new MemoryStream(data);
+            return SolidColorAnalyzer.Analyze(_codec.Decode(stream));
+        }
+        catch (Exception)
+        {
+            // Not an image, truncated, or an unsupported format: reported by name, never a crash.
+            return null;
+        }
+    }
+
+    private bool CanReset() => Screenshots.Count > 0 && !IsBusy;
 
     [RelayCommand(CanExecute = nameof(CanReset))]
     private void Reset() => ResetCore();
@@ -216,7 +382,9 @@ public partial class MainWindowViewModel : ObservableObject
         _lutApplier = null;
         HasLut = false;
         ShowCorrected = false;
-        PreviewImage = null;
+        _previewSource = null;
+        _previewCorrected = null;
+        SetPreview(null);
         StatusText = "Capture the 39 calibration colors, then add the screenshots here.";
         LastDetails = null;
         IsDetailsOpen = false;
@@ -233,17 +401,37 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    private bool CanGenerate() => Screenshots.Count > 0;
+    private bool CanGenerate() => Screenshots.Count > 0 && !IsBusy;
 
     [RelayCommand(CanExecute = nameof(CanGenerate))]
     private async Task GenerateAsync()
     {
-        var inputs = Screenshots.Select(s => new ScreenshotInput(s.Name, s.Data)).ToList();
+        IsBusy = true;
+        try
+        {
+            await GenerateCoreAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task GenerateCoreAsync()
+    {
+        var inputs = Screenshots.Select(s => new ScreenshotInput(s.Name, s.Data, s.Analysis)).ToList();
         var items = Screenshots.ToList();
         var progress = new Progress<PipelineProgress>(p => StatusText = p.Message);
 
         LastDetails = null;
         IsDetailsOpen = false;
+
+        // Drop the previous run's LUT up front: if this run fails, Save and the corrected
+        // preview must not keep offering a LUT that no longer matches the loaded screenshots.
+        _lutImage = null;
+        _lutApplier = null;
+        HasLut = false;
+        ShowCorrected = false;
 
         CalibrationResult result;
         try
@@ -327,7 +515,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         string next = mustRecapture ? "" : " Next: click Save LUT.png.";
         StatusText = result.Diagnostics is { } d
-            ? $"Finished - mean ΔE {d.MeanDeltaE:F4}, p95 {d.P95DeltaE:F4}, {d.InlierCount}/{d.TotalCount} inliers.{next}"
+            ? $"Finished - mean dE {d.MeanDeltaE:F4}, p95 {d.P95DeltaE:F4}, {d.InlierCount}/{d.TotalCount} inliers.{next}"
             : $"Finished.{next}";
         await UpdatePreviewAsync();
     }
@@ -359,7 +547,7 @@ public partial class MainWindowViewModel : ObservableObject
                 await memory.CopyToAsync(stream);
             }
 
-            StatusText = "LUT.png saved. In OBS: Filters → Apply LUT → select the file.";
+            StatusText = "LUT.png saved. In OBS: Filters > Apply LUT > select the file.";
         }
         catch (Exception ex)
         {
@@ -379,28 +567,59 @@ public partial class MainWindowViewModel : ObservableObject
         var item = SelectedScreenshot;
         if (item is null)
         {
-            PreviewImage = null;
+            SetPreview(null);
             return;
         }
 
-        var source = item.Image;
+        RawImage source;
+        if (_previewSource is { } cachedSource && cachedSource.Item == item)
+        {
+            source = cachedSource.Image;
+        }
+        else
+        {
+            source = await Task.Run(() =>
+            {
+                using var stream = new MemoryStream(item.Data);
+                return _codec.Decode(stream);
+            });
+            if (version != _previewVersion)
+            {
+                return; // superseded by a newer preview request
+            }
+
+            _previewSource = (item, source);
+            _previewCorrected = null;
+        }
+
         if (ShowCorrected && _lutApplier is { } applier)
         {
-            if (item.Corrected is null || item.CorrectedGeneration != _lutGeneration)
+            if (_previewCorrected is { } cachedCorrected && cachedCorrected.Item == item && cachedCorrected.Generation == _lutGeneration)
             {
-                var corrected = await Task.Run(() => applier.Apply(item.Image));
+                source = cachedCorrected.Image;
+            }
+            else
+            {
+                var uncorrected = source;
+                source = await Task.Run(() => applier.Apply(uncorrected));
                 if (version != _previewVersion)
                 {
                     return; // superseded by a newer preview request
                 }
 
-                item.Corrected = corrected;
-                item.CorrectedGeneration = _lutGeneration;
+                _previewCorrected = (item, _lutGeneration, source);
             }
-
-            source = item.Corrected;
         }
 
-        PreviewImage = PreviewRenderer.ToBitmap(source);
+        SetPreview(PreviewRenderer.ToBitmap(source));
+    }
+
+    /// <summary>Swaps the preview bitmap and frees the old one's native pixel buffer right away
+    /// instead of leaving it to the finalizer; the binding has already moved to the new one.</summary>
+    private void SetPreview(Bitmap? bitmap)
+    {
+        var old = PreviewImage;
+        PreviewImage = bitmap;
+        old?.Dispose();
     }
 }

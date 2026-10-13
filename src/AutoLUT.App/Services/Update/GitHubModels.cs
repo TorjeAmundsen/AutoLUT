@@ -10,7 +10,8 @@ public sealed record GitHubRelease(
 
 public sealed record GitHubAsset(
     [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("browser_download_url")] string DownloadUrl);
+    [property: JsonPropertyName("browser_download_url")] string DownloadUrl,
+    [property: JsonPropertyName("digest")] string? Digest);
 
 // Source-generated (JsonSerializerContext) so serialization stays reflection-free and
 // Native-AOT/trim safe under TreatWarningsAsErrors. One context covers the GitHub

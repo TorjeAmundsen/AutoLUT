@@ -3,13 +3,16 @@ name: Validate build
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: '10.0.x'
 
@@ -22,20 +25,31 @@ jobs:
       - name: Test
         run: dotnet test -c Release --no-build
 
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Same pinned clang-format as build.ps1 --format; fix failures by running that.
+      - name: Check C formatting
+        run: |
+          find wii n64 -path '*/build' -prune -o \( -name '*.c' -o -name '*.h' \) -print \
+            | xargs pipx run --spec clang-format==23.1.1 clang-format --dry-run --Werror
+
   wii:
     runs-on: ubuntu-latest
-    container: devkitpro/devkitppc:latest
+    container: devkitpro/devkitppc:latest@sha256:44cb1a920e1ec3ec7c06767493c3b85f8d643d6137cc4661f0201895ac6e4967
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build homebrew
         run: make -C wii
 
   n64:
     runs-on: ubuntu-latest
-    container: ghcr.io/dragonminded/libdragon:latest
+    container: ghcr.io/dragonminded/libdragon:latest@sha256:9fe2843c9b7289393c1885be62391140e8b4cdb3edbc715f202dea16f554c5d2
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build ROM
         run: sh n64/build.sh

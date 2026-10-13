@@ -44,17 +44,22 @@ public class MessageBox : Window
             Margin = new Thickness(20, 0, 20, 16),
         };
 
-        void AddButton(string content, MessageBoxResult result, bool isDefault = false)
+        // Enter clicks the default button and Escape the cancel one, wherever focus is.
+        Button? defaultButton = null;
+        void AddButton(string content, MessageBoxResult result, bool isDefault = false, bool isCancel = false)
         {
             var btn = new Button
             {
                 Content = content,
                 MinWidth = 72,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
+                IsDefault = isDefault,
+                IsCancel = isCancel,
             };
             if (isDefault)
             {
                 btn.Classes.Add("accent");
+                defaultButton = btn;
             }
             btn.Click += (_, _) =>
             {
@@ -67,16 +72,16 @@ public class MessageBox : Window
         switch (buttons)
         {
             case MessageBoxButton.Ok:
-                AddButton("OK", MessageBoxResult.Ok, isDefault: true);
+                AddButton("OK", MessageBoxResult.Ok, isDefault: true, isCancel: true);
                 break;
             case MessageBoxButton.YesNo:
                 AddButton("Yes", MessageBoxResult.Yes, isDefault: true);
-                AddButton("No", MessageBoxResult.No);
+                AddButton("No", MessageBoxResult.No, isCancel: true);
                 break;
             case MessageBoxButton.YesNoCancel:
                 AddButton("Yes", MessageBoxResult.Yes, isDefault: true);
                 AddButton("No", MessageBoxResult.No);
-                AddButton("Cancel", MessageBoxResult.Cancel);
+                AddButton("Cancel", MessageBoxResult.Cancel, isCancel: true);
                 break;
         }
 
@@ -84,6 +89,8 @@ public class MessageBox : Window
         {
             Children = { messageText, buttonPanel },
         };
+
+        msgBox.Opened += (_, _) => defaultButton?.Focus();
 
         var tcs = new TaskCompletionSource<MessageBoxResult>();
         msgBox.Closed += (_, _) => tcs.TrySetResult(msgBox._result);

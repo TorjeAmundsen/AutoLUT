@@ -109,6 +109,22 @@ public class FitterTests
         }
     }
 
+    [TestCase(false, ExpectedResult = false)]
+    [TestCase(true, ExpectedResult = true)]
+    public bool Fit_GrossOutlier_KeptOnlyWhenFlaggedAsAnchor(bool isAnchor)
+    {
+        // Arrange: one garbage reference among clean samples. Its weight is a noisy capture's
+        // (well below 1), so only the explicit flag - not the weight - can exempt it.
+        var samples = MakeSamples(100, seed: 8);
+        samples[0] = samples[0] with { Reference = new Rgb(1f, 0f, 1f), Weight = 0.5, IsAnchor = isAnchor };
+
+        // Act
+        var result = new AffineCurvesFitter().Fit(samples, FitOptions.Default, CancellationToken.None);
+
+        // Assert
+        return result.Diagnostics.Inliers[0];
+    }
+
     [Test]
     public void Fit_DegenerateSamples_ProducesFiniteNearIdentityTransform()
     {

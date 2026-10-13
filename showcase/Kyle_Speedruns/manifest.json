@@ -1,0 +1,15 @@
+{
+    "subjects": [
+        {
+            "label": "Kokiri Forest",
+            "before": "kokiri-before.png",
+            "after": "kokiri-after.png",
+            "dolphin": "reef-dolphin.png"
+        },
+        {
+            "label": "Sunset",
+            "before": "sunset-before.png",
+            "after": "sunset-after.png"
+        }
+    ]
+}
